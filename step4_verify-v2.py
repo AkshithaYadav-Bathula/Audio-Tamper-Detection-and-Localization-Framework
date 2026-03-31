@@ -67,15 +67,15 @@ def compute_nc(b1, b2):
 
 # ── Register and SAVE to pkl ───────────────────────────────────────────
 def register_and_save(audio_path):
-    fname    = os.path.splitext(os.path.basename(audio_path))[0]
-    pkl_path = os.path.join(OUTPUT_PATH, f"registered_{fname}.pkl")
+    fname     = os.path.splitext(os.path.basename(audio_path))[0]
+    pkl_path  = os.path.join(OUTPUT_PATH, f"registered_{fname}.pkl")
 
-    y, _   = librosa.load(audio_path, sr=SR, mono=True)
-    feats  = extract_features(y)
-    thresh = np.mean(feats, axis=0)
-    binary = (feats >= thresh).astype(np.uint8).flatten()
-    key    = henon_key(len(binary))
-    enc    = np.bitwise_xor(binary, key)
+    y, _      = librosa.load(audio_path, sr=SR, mono=True)
+    feats     = extract_features(y)
+    thresh    = np.mean(feats, axis=0)
+    binary    = (feats >= thresh).astype(np.uint8).flatten()
+    key       = henon_key(len(binary))
+    enc       = np.bitwise_xor(binary, key)
 
     data = {
         "audio_path": audio_path,
@@ -86,27 +86,11 @@ def register_and_save(audio_path):
         "henon_x0"  : 0.1, "henon_y0": 0.3,
         "henon_a"   : 1.4, "henon_b" : 0.3,
     }
-
     with open(pkl_path, "wb") as f:
         pickle.dump(data, f)
-
-    print(f"  Audio file   : {os.path.basename(audio_path)}")
-    print(f"  Duration     : {len(y)/SR:.2f} seconds")
-    print(f"  Total frames : {len(feats)}")
-    print(f"  Feature size : {feats.shape[1]} per frame")
-    print(f"  Binary bits  : {len(binary)}")
-    print(f"  PKL saved    : {os.path.basename(pkl_path)}")
-    return data, pkl_path, key, binary
-
-# ── Print chaotic key details ──────────────────────────────────────────
-def print_key_details(key, binary, enc):
-    print(f"\n  [CHAOTIC KEY — HENON MAP ENCRYPTION]")
-    print(f"  Henon parameters : a=1.4,  b=0.3,  x0=0.1,  y0=0.3")
-    print(f"  Key length       : {len(key)} bits")
-    print(f"  Key preview      : {list(key[:20])} ...")
-    print(f"  Raw fingerprint  : {list(binary[:20])} ...")
-    print(f"  XOR encrypted    : {list(enc[:20])} ...")
-    print(f"  (Full key is {len(key)} bits — shown first 20 only)")
+    print(f"  Registered and saved → {os.path.basename(pkl_path)}")
+    print(f"  Frames: {len(feats)}   Features: {feats.shape[1]}   Bits: {len(binary)}")
+    return data, pkl_path
 
 # ── Load from pkl ──────────────────────────────────────────────────────
 def load_registration(pkl_path):
@@ -244,7 +228,7 @@ if __name__ == "__main__":
             print(f"\nSkipping (not found): {audio_path}")
             continue
 
-        fname        = os.path.basename(audio_path)
+        fname = os.path.basename(audio_path)
         fname_no_ext = os.path.splitext(fname)[0]
 
         print(f"\n{'='*60}")
@@ -253,22 +237,17 @@ if __name__ == "__main__":
 
         # STEP 1: Register and save pkl
         print(f"\n  [REGISTRATION]")
-        reg, pkl_path, key, binary = register_and_save(audio_path)
+        reg, pkl_path = register_and_save(audio_path)
 
-        # STEP 2: Print chaotic key details
-        print_key_details(key, binary, reg["encrypted"])
-
-        # STEP 3: Load from pkl to confirm it was saved
+        # STEP 2: Load from pkl (proves it was saved and loaded correctly)
         reg_loaded = load_registration(pkl_path)
-        print(f"\n  [PKL LOADED SUCCESSFULLY]")
-        print(f"  File in pkl  : {os.path.basename(reg_loaded['audio_path'])}")
-        print(f"  Frames       : {reg_loaded['n_frames']}")
-        print(f"  Features     : {reg_loaded['n_features']}")
+        print(f"  Loaded from pkl  → {os.path.basename(pkl_path)} ✓")
 
-        # STEP 4: Load audio and verify original
+        # STEP 3: Load audio
         y, _     = librosa.load(audio_path, sr=SR, mono=True)
         duration = len(y) / SR
 
+        # STEP 4: Verify original
         print(f"\n  [VERIFICATION]")
         orig_res   = verify(y, reg_loaded, clf, scaler)
         orig_label = "AUTHENTIC" if not orig_res["tampered"] else "TAMPERED"
@@ -276,10 +255,11 @@ if __name__ == "__main__":
               f"BER={orig_res['ber']:.4f}  NC={orig_res['nc']:.4f}  "
               f"Tampered frames={orig_res['n_tampered']}/{orig_res['n_frames']}")
 
-        # STEP 5: Apply each attack and verify
+        # STEP 5: Apply each attack, verify, save heatmap
         for attack in attacks:
             y_att, s, e = apply_attack(y, attack)
 
+            # save attacked wav
             att_wav = os.path.join(OUTPUT_PATH, f"{fname_no_ext}_{attack}.wav")
             sf.write(att_wav, y_att, SR)
 
@@ -301,7 +281,7 @@ if __name__ == "__main__":
 
             heatmap_path = os.path.join(OUTPUT_PATH, f"{fname_no_ext}_{attack}.png")
             draw_comparison(fname, duration, orig_res, att_res, attack, heatmap_path)
-            print(f"  Heatmap   → {fname_no_ext}_{attack}.png")
+            print(f"  Heatmap saved → {fname_no_ext}_{attack}.png")
 
     # ── Final summary ──────────────────────────────────────────────────
     print(f"\n\n{'='*80}")
@@ -315,10 +295,11 @@ if __name__ == "__main__":
               f"{r['ber']:<8.4f} {r['nc']:<8.4f} {r['location']}")
     print(f"{'='*80}")
 
-    print(f"\nPKL files saved:")
+    print(f"\nPKL files saved in output folder:")
     for audio_path in TEST_FILES:
-        fn  = os.path.splitext(os.path.basename(audio_path))[0]
-        pkl = os.path.join(OUTPUT_PATH, f"registered_{fn}.pkl")
+        fname_no_ext = os.path.splitext(os.path.basename(audio_path))[0]
+        pkl = os.path.join(OUTPUT_PATH, f"registered_{fname_no_ext}.pkl")
         if os.path.exists(pkl):
             print(f"  {os.path.basename(pkl)} ✓")
+
     print(f"\nAll heatmaps saved in: {OUTPUT_PATH}")

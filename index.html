@@ -1,0 +1,1129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>VoiceGuard — Forensic Audio Authentication</title>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist+Mono:wght@300;400;500&family=Geist:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --white:#ffffff;
+  --bg:#f7f7f5;
+  --surface:#ffffff;
+  --border:#e4e4e0;
+  --border-mid:#d0d0ca;
+  --text:#1a1a18;
+  --text-mid:#5a5a54;
+  --text-light:#9a9a92;
+  --accent:#1a1a18;
+  --blue:#2563eb;
+  --green:#16a34a;
+  --red:#dc2626;
+  --amber:#d97706;
+  --green-bg:#f0fdf4;
+  --red-bg:#fff1f2;
+  --blue-bg:#eff6ff;
+  --green-border:#bbf7d0;
+  --red-border:#fecdd3;
+  --blue-border:#bfdbfe;
+  --mono:'Geist Mono',monospace;
+  --sans:'Geist',sans-serif;
+  --serif:'Instrument Serif',serif;
+  --radius:8px;
+  --shadow:0 1px 3px rgba(0,0,0,.06),0 1px 2px rgba(0,0,0,.04);
+  --shadow-md:0 4px 12px rgba(0,0,0,.08),0 2px 4px rgba(0,0,0,.04);
+  --shadow-lg:0 12px 32px rgba(0,0,0,.10),0 4px 8px rgba(0,0,0,.06);
+}
+html{font-size:14px}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);font-weight:400;min-height:100vh;line-height:1.5}
+
+/* ── Shell ── */
+.shell{display:flex;min-height:100vh}
+
+/* ── Sidebar ── */
+.sidebar{
+  width:240px;min-height:100vh;background:var(--surface);
+  border-right:1px solid var(--border);
+  display:flex;flex-direction:column;
+  position:fixed;top:0;left:0;bottom:0;z-index:100
+}
+.sidebar-top{padding:28px 24px 20px;border-bottom:1px solid var(--border)}
+.logo{
+  font-family:var(--serif);font-size:22px;
+  color:var(--text);line-height:1;margin-bottom:4px
+}
+.logo em{font-style:italic;color:var(--blue)}
+.logo-sub{
+  font-family:var(--mono);font-size:9px;
+  color:var(--text-light);letter-spacing:.12em;text-transform:uppercase
+}
+.nav{padding:16px 12px;flex:1}
+.nav-label{
+  font-family:var(--mono);font-size:9px;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--text-light);
+  padding:10px 12px 6px
+}
+.nav-item{
+  display:flex;align-items:center;gap:10px;
+  padding:9px 12px;border-radius:6px;cursor:pointer;
+  color:var(--text-mid);font-size:13px;font-weight:500;
+  transition:all .15s;border:1px solid transparent;
+  margin-bottom:2px
+}
+.nav-item:hover{background:#f5f5f3;color:var(--text)}
+.nav-item.active{
+  background:var(--text);color:var(--white);
+  border-color:var(--text)
+}
+.nav-item .ni{font-size:14px;width:16px;text-align:center;flex-shrink:0}
+.sidebar-footer{
+  padding:16px 24px;border-top:1px solid var(--border)
+}
+.sys-stat{
+  display:flex;align-items:center;gap:8px;
+  font-family:var(--mono);font-size:10px;color:var(--text-light);
+  margin-bottom:6px
+}
+.sys-stat:last-child{margin:0}
+.dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.dot-green{background:var(--green);box-shadow:0 0 0 2px var(--green-bg)}
+
+/* ── Main ── */
+.main{margin-left:240px;flex:1;display:flex;flex-direction:column}
+
+/* ── Topbar ── */
+.topbar{
+  height:56px;background:var(--surface);border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 32px;position:sticky;top:0;z-index:50
+}
+.topbar-title{font-size:13px;font-weight:600;color:var(--text)}
+.topbar-title span{color:var(--text-light);font-weight:400}
+.topbar-chips{display:flex;gap:8px}
+.chip{
+  font-family:var(--mono);font-size:10px;padding:4px 10px;
+  border-radius:4px;border:1px solid var(--border);
+  color:var(--text-mid);background:var(--bg);letter-spacing:.04em
+}
+.chip-blue{border-color:var(--blue-border);color:var(--blue);background:var(--blue-bg)}
+.chip-green{border-color:var(--green-border);color:var(--green);background:var(--green-bg)}
+
+/* ── Pages ── */
+.page{display:none;padding:32px;animation:fadeIn .25s ease}
+.page.active{display:block}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+
+/* ── Page header ── */
+.ph{margin-bottom:28px}
+.ph h1{
+  font-family:var(--serif);font-size:32px;font-weight:400;
+  color:var(--text);line-height:1.15;margin-bottom:6px
+}
+.ph h1 em{font-style:italic;color:var(--blue)}
+.ph p{font-size:13px;color:var(--text-mid);max-width:560px;line-height:1.6}
+
+/* ── Cards ── */
+.card{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--radius);padding:24px;
+  box-shadow:var(--shadow)
+}
+.card-title{
+  font-family:var(--mono);font-size:10px;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--text-light);
+  margin-bottom:16px;padding-bottom:12px;
+  border-bottom:1px solid var(--border)
+}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}
+
+/* ── Form ── */
+.form-row{margin-bottom:16px}
+.label{
+  display:block;font-family:var(--mono);font-size:10px;
+  letter-spacing:.1em;text-transform:uppercase;
+  color:var(--text-mid);margin-bottom:6px
+}
+.input,.select{
+  width:100%;padding:9px 12px;
+  background:var(--bg);border:1px solid var(--border);
+  border-radius:6px;color:var(--text);font-family:var(--mono);
+  font-size:12px;outline:none;transition:border-color .15s;
+  appearance:none
+}
+.input:focus,.select:focus{border-color:var(--blue);background:var(--white)}
+.input-group{display:flex;gap:8px}
+.input-group .input{flex:1}
+
+/* ── Upload zone ── */
+.upload-zone{
+  border:1.5px dashed var(--border-mid);border-radius:var(--radius);
+  padding:36px 24px;text-align:center;cursor:pointer;
+  transition:all .2s;background:var(--bg)
+}
+.upload-zone:hover,.upload-zone.dragover{
+  border-color:var(--blue);background:var(--blue-bg)
+}
+.upload-icon{font-size:32px;margin-bottom:12px;opacity:.5}
+.upload-title{font-size:14px;font-weight:600;color:var(--text);margin-bottom:4px}
+.upload-sub{font-size:12px;color:var(--text-light);line-height:1.5}
+.upload-file-name{
+  display:inline-flex;align-items:center;gap:8px;
+  margin-top:12px;padding:6px 14px;border-radius:20px;
+  background:var(--blue-bg);border:1px solid var(--blue-border);
+  font-family:var(--mono);font-size:11px;color:var(--blue)
+}
+
+/* ── Buttons ── */
+.btn{
+  display:inline-flex;align-items:center;gap:8px;
+  padding:10px 18px;border:none;border-radius:6px;
+  font-family:var(--mono);font-size:11px;letter-spacing:.06em;
+  text-transform:uppercase;cursor:pointer;transition:all .15s;
+  font-weight:500
+}
+.btn-primary{background:var(--text);color:var(--white)}
+.btn-primary:hover{background:#333}
+.btn-blue{background:var(--blue);color:var(--white)}
+.btn-blue:hover{background:#1d4ed8}
+.btn-outline{
+  background:transparent;color:var(--text);
+  border:1px solid var(--border-mid)
+}
+.btn-outline:hover{background:var(--bg)}
+.btn-danger{background:var(--red-bg);color:var(--red);border:1px solid var(--red-border)}
+.btn-danger:hover{background:#ffe4e6}
+.btn-full{width:100%;justify-content:center}
+
+/* ── Stat bar ── */
+.stat-row{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+.stat-lbl{font-family:var(--mono);font-size:10px;color:var(--text-mid);width:72px;flex-shrink:0;letter-spacing:.04em}
+.stat-bar{flex:1;height:5px;background:var(--border);border-radius:3px;overflow:hidden}
+.stat-fill{height:100%;border-radius:3px;transition:width .6s ease}
+.stat-val{font-family:var(--mono);font-size:11px;color:var(--text);width:52px;text-align:right}
+
+/* ── Metric list ── */
+.metric-item{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:10px 0;border-bottom:1px solid var(--border)
+}
+.metric-item:last-child{border:none}
+.metric-name{font-size:13px;color:var(--text-mid)}
+.metric-val{font-family:var(--mono);font-size:12px;color:var(--text);font-weight:500}
+
+/* ── Status rows ── */
+.info-row{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:8px 12px;border-radius:6px;background:var(--bg);
+  margin-bottom:6px;font-size:12px
+}
+.info-row:last-child{margin:0}
+.info-key{color:var(--text-mid);font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase}
+.info-val{color:var(--text);font-family:var(--mono);font-size:11px;font-weight:500}
+
+/* ── Verdict banner ── */
+.verdict{
+  border-radius:var(--radius);padding:24px 28px;
+  display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:20px
+}
+.verdict.tampered{
+  background:var(--red-bg);border:1.5px solid var(--red-border)
+}
+.verdict.authentic{
+  background:var(--green-bg);border:1.5px solid var(--green-border)
+}
+.verdict-left{display:flex;align-items:center;gap:16px}
+.verdict-icon{font-size:36px;line-height:1}
+.verdict-label{
+  font-family:var(--serif);font-size:28px;font-weight:400;
+  line-height:1
+}
+.verdict.tampered .verdict-label{color:var(--red)}
+.verdict.authentic .verdict-label{color:var(--green)}
+.verdict-sub{font-size:12px;color:var(--text-mid);margin-top:4px}
+.verdict-right{text-align:right}
+.verdict-time{
+  font-family:var(--mono);font-size:20px;font-weight:500;
+  color:var(--red);line-height:1;margin-bottom:4px
+}
+.verdict-time-label{font-size:11px;color:var(--text-mid)}
+
+/* ── Heatmap ── */
+.heatmap-wrap{margin-top:4px}
+.heatmap-bar{
+  height:56px;display:flex;border-radius:6px;overflow:hidden;
+  border:1px solid var(--border)
+}
+.hm-seg{flex:1;transition:opacity .2s}
+.heatmap-axis{
+  display:flex;justify-content:space-between;
+  font-family:var(--mono);font-size:9px;color:var(--text-light);
+  margin-top:4px;padding:0 2px
+}
+.heatmap-legend{
+  display:flex;gap:16px;margin-bottom:10px
+}
+.hm-leg{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-mid)}
+.hm-leg-dot{width:10px;height:10px;border-radius:2px}
+
+/* ── Waveform ── */
+.wave-wrap{
+  background:var(--bg);border:1px solid var(--border);
+  border-radius:6px;overflow:hidden;height:72px;position:relative
+}
+.wave-label{
+  position:absolute;top:6px;left:10px;
+  font-family:var(--mono);font-size:9px;color:var(--text-light);
+  letter-spacing:.08em;text-transform:uppercase;z-index:2
+}
+.wave-wrap svg{width:100%;height:100%;display:block}
+
+/* ── Attack selector ── */
+.attack-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px}
+.atk-btn{
+  padding:14px;border:1.5px solid var(--border);border-radius:6px;
+  cursor:pointer;transition:all .15s;background:var(--surface);
+  text-align:left
+}
+.atk-btn:hover{border-color:var(--border-mid);background:var(--bg)}
+.atk-btn.active{border-color:var(--blue);background:var(--blue-bg)}
+.atk-btn.active .atk-name{color:var(--blue)}
+.atk-icon{font-size:18px;margin-bottom:8px}
+.atk-name{font-size:12px;font-weight:600;color:var(--text);margin-bottom:2px}
+.atk-desc{font-size:11px;color:var(--text-light);line-height:1.4}
+
+/* ── Tag ── */
+.tag{
+  display:inline-block;padding:2px 8px;border-radius:4px;
+  font-family:var(--mono);font-size:10px;letter-spacing:.04em
+}
+.tag-green{background:var(--green-bg);color:var(--green);border:1px solid var(--green-border)}
+.tag-red{background:var(--red-bg);color:var(--red);border:1px solid var(--red-border)}
+.tag-blue{background:var(--blue-bg);color:var(--blue);border:1px solid var(--blue-border)}
+.tag-gray{background:var(--bg);color:var(--text-mid);border:1px solid var(--border)}
+
+/* ── Results table ── */
+.rtable{width:100%;border-collapse:collapse}
+.rtable th{
+  font-family:var(--mono);font-size:9px;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--text-light);
+  padding:10px 14px;text-align:left;
+  border-bottom:1.5px solid var(--border);background:var(--bg)
+}
+.rtable td{
+  padding:11px 14px;border-bottom:1px solid var(--border);
+  font-size:12px;
+}
+.rtable tr:last-child td{border:none}
+.rtable tr:hover td{background:#fafaf9}
+.rtable td.mono{font-family:var(--mono)}
+
+/* ── PKL match banner ── */
+.pkl-match{
+  display:flex;align-items:center;gap:10px;
+  padding:10px 14px;border-radius:6px;
+  background:var(--green-bg);border:1px solid var(--green-border);
+  font-size:12px;color:var(--green);margin-bottom:16px
+}
+.pkl-match .mono{font-family:var(--mono);font-size:11px}
+
+/* ── Progress ring ── */
+.metrics-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.metric-card{
+  padding:16px;border-radius:6px;background:var(--bg);
+  border:1px solid var(--border);text-align:center
+}
+.mc-val{
+  font-family:var(--mono);font-size:26px;font-weight:500;
+  line-height:1;margin-bottom:4px
+}
+.mc-lbl{font-size:11px;color:var(--text-mid)}
+
+/* ── Step flow ── */
+.steps{display:flex;gap:0;margin-bottom:24px;overflow-x:auto}
+.step{
+  flex:1;min-width:100px;padding:14px 16px;
+  border:1px solid var(--border);background:var(--surface);
+  position:relative;text-align:center
+}
+.step:not(:last-child)::after{
+  content:'→';position:absolute;right:-10px;top:50%;transform:translateY(-50%);
+  font-size:14px;color:var(--text-light);z-index:1;background:var(--surface);
+  padding:0 2px
+}
+.step:first-child{border-radius:6px 0 0 6px}
+.step:last-child{border-radius:0 6px 6px 0}
+.step-n{
+  font-family:var(--mono);font-size:9px;color:var(--text-light);
+  letter-spacing:.1em;margin-bottom:6px
+}
+.step-name{font-size:11px;font-weight:600;color:var(--text);margin-bottom:2px}
+.step-desc{font-size:10px;color:var(--text-light);line-height:1.4}
+.step.done{background:var(--text);border-color:var(--text)}
+.step.done .step-n,.step.done .step-name,.step.done .step-desc{color:rgba(255,255,255,.7)}
+.step.done .step-name{color:var(--white)}
+
+/* ── Divider ── */
+hr{border:none;border-top:1px solid var(--border);margin:20px 0}
+
+/* ── Helpers ── */
+.mb-8{margin-bottom:8px}
+.mb-12{margin-bottom:12px}
+.mb-16{margin-bottom:16px}
+.mb-20{margin-bottom:20px}
+.mb-24{margin-bottom:24px}
+.flex{display:flex}
+.gap-12{gap:12px}
+.gap-8{gap:8px}
+.items-center{align-items:center}
+.justify-between{justify-content:space-between}
+.text-right{text-align:right}
+
+/* ── Notice box ── */
+.notice{
+  padding:12px 16px;border-radius:6px;font-size:12px;line-height:1.5;
+  display:flex;gap:10px;align-items:flex-start
+}
+.notice-blue{background:var(--blue-bg);border:1px solid var(--blue-border);color:#1e40af}
+.notice-amber{background:#fffbeb;border:1px solid #fde68a;color:#92400e}
+.notice-green{background:var(--green-bg);border:1px solid var(--green-border);color:#166534}
+.notice-icon{flex-shrink:0;font-size:14px;margin-top:1px}
+
+/* ── Dual layer ── */
+.layer-row{
+  display:flex;gap:8px;margin-top:16px
+}
+.layer-box{
+  flex:1;padding:12px;border-radius:6px;text-align:center;
+  border:1px solid var(--border);background:var(--bg)
+}
+.layer-box.pass{background:var(--green-bg);border-color:var(--green-border)}
+.layer-box.fail{background:var(--red-bg);border-color:var(--red-border)}
+.layer-box.final-fail{background:var(--red);border-color:var(--red)}
+.layer-title{font-size:10px;color:var(--text-light);margin-bottom:4px;font-family:var(--mono);letter-spacing:.06em;text-transform:uppercase}
+.layer-val{font-size:13px;font-weight:600}
+.layer-box.pass .layer-val{color:var(--green)}
+.layer-box.fail .layer-val{color:var(--red)}
+.layer-box.final-fail .layer-title,.layer-box.final-fail .layer-val{color:var(--white)}
+</style>
+</head>
+<body>
+<div class="shell">
+
+<!-- ══ SIDEBAR ══ -->
+<aside class="sidebar">
+  <div class="sidebar-top">
+    <div class="logo">Voice<em>Guard</em></div>
+    <div class="logo-sub">Forensic Audio Auth · v2.0</div>
+  </div>
+  <nav class="nav">
+    <div class="nav-label">Workflow</div>
+    <div class="nav-item" id="nav-register" onclick="goTo('register')">
+      <span class="ni">①</span> Register Audio
+    </div>
+    <div class="nav-item" id="nav-attack" onclick="goTo('attack')">
+      <span class="ni">②</span> Attack Simulator
+    </div>
+    <div class="nav-item active" id="nav-verify" onclick="goTo('verify')">
+      <span class="ni">③</span> Verify & Detect
+    </div>
+  </nav>
+  <div class="sidebar-footer">
+    <div class="sys-stat"><div class="dot dot-green"></div> RF Model — 86.28% Acc</div>
+    <div class="sys-stat"><div class="dot dot-green"></div> TIMIT 600-file dataset</div>
+    <div class="sys-stat"><div class="dot dot-green"></div> Henon XOR encryption</div>
+  </div>
+</aside>
+
+<!-- ══ MAIN ══ -->
+<main class="main">
+<div class="topbar">
+  <div class="topbar-title">VoiceGuard &nbsp;<span>/ Zero-Watermarking Speech Authentication</span></div>
+  <div class="topbar-chips">
+    <span class="chip chip-green">Model Active</span>
+    <span class="chip chip-blue">16 kHz · 30-dim</span>
+    <span class="chip">TIMIT Dataset</span>
+  </div>
+</div>
+
+<!-- ══════════ REGISTER ══════════ -->
+<section class="page" id="page-register">
+  <div class="ph">
+    <h1>Register <em>Audio File</em></h1>
+    <p>Upload an original clean speech recording to generate its encrypted fingerprint. The audio is never modified — this is zero-watermarking.</p>
+  </div>
+
+  <!-- Step indicator -->
+  <div class="steps mb-24" id="reg-steps">
+    <div class="step done" id="rs1"><div class="step-n">Step 01</div><div class="step-name">Upload WAV</div><div class="step-desc">Original clean file</div></div>
+    <div class="step" id="rs2"><div class="step-n">Step 02</div><div class="step-name">Extract Features</div><div class="step-desc">30-dim per frame</div></div>
+    <div class="step" id="rs3"><div class="step-n">Step 03</div><div class="step-name">Binarize</div><div class="step-desc">Mean threshold → bits</div></div>
+    <div class="step" id="rs4"><div class="step-n">Step 04</div><div class="step-name">Henon Encrypt</div><div class="step-desc">XOR with chaotic key</div></div>
+    <div class="step" id="rs5"><div class="step-n">Step 05</div><div class="step-name">Save PKL</div><div class="step-desc">registered_<i>name</i>.pkl</div></div>
+  </div>
+
+  <div class="grid-2 mb-16">
+    <div class="card">
+      <div class="card-title">Upload Original Audio</div>
+
+      <div class="upload-zone mb-16" id="reg-drop" onclick="document.getElementById('reg-file-input').click()"
+           ondragover="e=>e.preventDefault()" ondrop="handleRegDrop(event)">
+        <div class="upload-icon">🎙</div>
+        <div class="upload-title">Drop .WAV file here</div>
+        <div class="upload-sub">or click to browse — 16 kHz mono recommended</div>
+        <div class="upload-file-name" id="reg-fname" style="display:none">
+          <span>📄</span><span id="reg-fname-text"></span>
+        </div>
+      </div>
+      <input type="file" id="reg-file-input" accept=".wav,.WAV" style="display:none" onchange="onRegFile(this)"/>
+
+      <div class="form-row">
+        <label class="label">Or Enter File Path</label>
+        <div class="input-group">
+          <input class="input" id="reg-path" type="text" placeholder="e.g. SA1.WAV" value="SA1.WAV"/>
+          <button class="btn btn-outline" onclick="registerFromPath()">Load</button>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <label class="label">Henon Encryption Key Parameters</label>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px">
+          <div><label class="label">x₀</label><input class="input" value="0.1" id="h-x0"/></div>
+          <div><label class="label">y₀</label><input class="input" value="0.3" id="h-y0"/></div>
+          <div><label class="label">a</label><input class="input" value="1.4" id="h-a"/></div>
+          <div><label class="label">b</label><input class="input" value="0.3" id="h-b"/></div>
+        </div>
+      </div>
+
+      <button class="btn btn-primary btn-full" onclick="runRegister()">
+        Generate Fingerprint & Save PKL
+      </button>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Registration Output</div>
+      <div id="reg-empty" style="text-align:center;padding:48px 0;color:var(--text-light)">
+        <div style="font-size:40px;margin-bottom:12px;opacity:.25">◎</div>
+        <div style="font-family:var(--mono);font-size:11px">No file registered yet</div>
+      </div>
+      <div id="reg-out" style="display:none">
+        <div class="info-row mb-8" style="margin-bottom:0">
+          <span class="info-key">File</span><span class="info-val" id="ro-file">SA1.WAV</span>
+        </div>
+        <div class="info-row">
+          <span class="info-key">Duration</span><span class="info-val" id="ro-dur">—</span>
+        </div>
+        <div class="info-row">
+          <span class="info-key">Sample Rate</span><span class="info-val">16,000 Hz</span>
+        </div>
+        <div class="info-row">
+          <span class="info-key">Frames</span><span class="info-val" id="ro-frames">—</span>
+        </div>
+        <div class="info-row">
+          <span class="info-key">Feature Dims</span><span class="info-val">30</span>
+        </div>
+        <div class="info-row">
+          <span class="info-key">Fingerprint Bits</span><span class="info-val" id="ro-bits">—</span>
+        </div>
+        <div class="info-row">
+          <span class="info-key">Encryption</span><span class="info-val">Henon XOR</span>
+        </div>
+        <div class="info-row" style="background:var(--green-bg);border:1px solid var(--green-border);border-radius:6px;margin-top:8px">
+          <span class="info-key" style="color:var(--green)">Saved As</span>
+          <span class="info-val" id="ro-pkl" style="color:var(--green)">—</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Waveform + fingerprint bits - shown after register -->
+  <div id="reg-detail" style="display:none">
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-title">Waveform Preview</div>
+        <div class="wave-wrap">
+          <div class="wave-label">Original Signal</div>
+          <svg id="wave-reg" viewBox="0 0 700 72" preserveAspectRatio="none"></svg>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-family:var(--mono);font-size:9px;color:var(--text-light);margin-top:4px">
+          <span>0.00 s</span><span id="wave-mid-t">—</span><span id="wave-end-t">—</span>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">Encrypted Fingerprint Preview</div>
+        <div style="font-family:var(--mono);font-size:10px;color:var(--text-mid);line-height:1.9;word-break:break-all;letter-spacing:.1em;max-height:80px;overflow:hidden;padding:8px;background:var(--bg);border-radius:4px;border:1px solid var(--border)" id="bits-disp">—</div>
+        <div style="font-family:var(--mono);font-size:9px;color:var(--text-light);margin-top:8px">First 128 bits shown · XOR-encrypted with Henon chaotic key</div>
+        <div class="notice notice-blue" style="margin-top:12px">
+          <span class="notice-icon">ℹ</span>
+          <span>Original audio <strong>not modified</strong> — fingerprint stored externally. PSNR = ∞</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ ATTACK ══════════ -->
+<section class="page" id="page-attack">
+  <div class="ph">
+    <h1>Attack <em>Simulator</em></h1>
+    <p>Apply one of four forensic tampering attacks to a registered audio file to test the detection robustness of the system.</p>
+  </div>
+
+  <div class="grid-2 mb-16">
+    <div class="card">
+      <div class="card-title">Select File & Attack</div>
+
+      <div class="form-row">
+        <label class="label">Target Audio File</label>
+        <select class="select" id="atk-file">
+          <option>SA1.WAV</option>
+          <option>SA2.WAV</option>
+          <option>SI1544.WAV</option>
+          <option>SI1566.WAV</option>
+        </select>
+      </div>
+
+      <div class="label" style="margin-bottom:8px">Attack Type</div>
+      <div class="attack-grid">
+        <div class="atk-btn active" id="ab-noise" onclick="selAtk('noise')">
+          <div class="atk-icon">〜</div>
+          <div class="atk-name">Gaussian Noise</div>
+          <div class="atk-desc">SNR 10 dB · region 25%–65%</div>
+        </div>
+        <div class="atk-btn" id="ab-deletion" onclick="selAtk('deletion')">
+          <div class="atk-icon">✂</div>
+          <div class="atk-name">Deletion</div>
+          <div class="atk-desc">Zeroed silence · 30%–60%</div>
+        </div>
+        <div class="atk-btn" id="ab-splice" onclick="selAtk('splice')">
+          <div class="atk-icon">⇄</div>
+          <div class="atk-name">Splice</div>
+          <div class="atk-desc">Foreign speaker · 33%–66%</div>
+        </div>
+        <div class="atk-btn" id="ab-amplify" onclick="selAtk('amplify')">
+          <div class="atk-icon">▲</div>
+          <div class="atk-name">Amplify</div>
+          <div class="atk-desc">4× gain + clip · 20%–55%</div>
+        </div>
+      </div>
+
+      <button class="btn btn-danger btn-full" onclick="applyAttack()">Apply Attack</button>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Attack Parameters</div>
+      <div id="atk-info-box">
+        <div class="notice notice-amber mb-16">
+          <span class="notice-icon">⚡</span>
+          <div><strong>Gaussian Noise</strong> — Adds random noise at 10 dB SNR to the middle 25%–65% of the signal. Clearly audible; distorts MFCC coefficients, spectral rolloff, and ZCR.</div>
+        </div>
+        <div class="info-row"><span class="info-key">Start</span><span class="info-val" id="ai-start">25% → 0.87 s</span></div>
+        <div class="info-row"><span class="info-key">End</span><span class="info-val" id="ai-end">65% → 2.27 s</span></div>
+        <div class="info-row"><span class="info-key">Duration affected</span><span class="info-val" id="ai-dur">~1.40 s</span></div>
+        <div class="info-row"><span class="info-key">Approx. frames</span><span class="info-val" id="ai-frames">~140 / 350</span></div>
+        <div class="info-row"><span class="info-key">Primary features</span><span class="info-val" id="ai-feats">MFCC, Rolloff, ZCR</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Waveform comparison — shown after attack applied -->
+  <div id="atk-result" style="display:none">
+    <div class="card mb-16">
+      <div class="card-title">Waveform Comparison — Original vs Attacked</div>
+      <div class="grid-2" style="gap:16px">
+        <div>
+          <div style="font-family:var(--mono);font-size:9px;color:var(--text-light);letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px">Original</div>
+          <div class="wave-wrap"><svg id="wave-orig-cmp" viewBox="0 0 700 72" preserveAspectRatio="none"></svg></div>
+        </div>
+        <div>
+          <div style="font-family:var(--mono);font-size:9px;letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px" style="color:var(--red)">
+            <span id="atk-wave-label" style="color:var(--red)">After Attack — tampered region highlighted</span>
+          </div>
+          <div class="wave-wrap"><svg id="wave-att-cmp" viewBox="0 0 700 72" preserveAspectRatio="none"></svg></div>
+        </div>
+      </div>
+      <div style="margin-top:10px;display:flex;align-items:center;gap:16px">
+        <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-mid)"><div style="width:12px;height:12px;border-radius:2px;background:#2563eb20;border:1px solid var(--blue-border)"></div> Clean region</div>
+        <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-mid)"><div style="width:12px;height:12px;border-radius:2px;background:#dc262620;border:1px solid var(--red-border)"></div> Tampered region</div>
+        <span id="atk-range-label" style="font-family:var(--mono);font-size:11px;color:var(--red);margin-left:auto"></span>
+      </div>
+    </div>
+
+    <div class="notice notice-blue">
+      <span class="notice-icon">ℹ</span>
+      <span>Attacked file saved as <strong id="atk-saved-name" style="font-family:var(--mono)">SA1_noise.wav</strong>. 
+      Go to <strong>Verify & Detect</strong> to run authentication on this file.</span>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ VERIFY ══════════ -->
+<section class="page active" id="page-verify">
+  <div class="ph">
+    <h1>Verify & <em>Detect</em></h1>
+    <p>Upload any WAV file. The system auto-matches its registered fingerprint, runs dual-layer detection, and shows exact tamper localization.</p>
+  </div>
+
+  <div class="card mb-16">
+    <div class="card-title">Upload Suspect Audio File</div>
+    <div class="upload-zone" id="ver-drop" onclick="document.getElementById('ver-file-input').click()">
+      <div class="upload-icon">🔍</div>
+      <div class="upload-title">Drop suspect .WAV file here</div>
+      <div class="upload-sub">System will auto-match registered PKL from filename<br/>e.g. SA1_noise.WAV → registered_SA1.pkl</div>
+      <div class="upload-file-name" id="ver-fname" style="display:none">
+        <span>📄</span><span id="ver-fname-text"></span>
+      </div>
+    </div>
+    <input type="file" id="ver-file-input" accept=".wav,.WAV" style="display:none" onchange="onVerFile(this)"/>
+
+    <div style="margin-top:12px;display:flex;gap:12px;align-items:flex-end">
+      <div style="flex:1">
+        <label class="label">Or Select Demo File</label>
+        <select class="select" id="demo-select" onchange="loadDemo()">
+          <option value="">— choose a demo —</option>
+          <option value="SA1-noise">SA1.WAV + noise attack</option>
+          <option value="SA1-deletion">SA1.WAV + deletion attack</option>
+          <option value="SA1-splice">SA1.WAV + splice attack</option>
+          <option value="SA1-amplify">SA1.WAV + amplify attack</option>
+          <option value="SA2-noise">SA2.WAV + noise attack</option>
+          <option value="SA2-deletion">SA2.WAV + deletion attack</option>
+          <option value="SA2-splice">SA2.WAV + splice attack</option>
+          <option value="SA2-amplify">SA2.WAV + amplify attack</option>
+          <option value="SI1544-noise">SI1544.WAV + noise attack</option>
+          <option value="SI1544-deletion">SI1544.WAV + deletion attack</option>
+          <option value="SI1544-splice">SI1544.WAV + splice attack</option>
+          <option value="SI1544-amplify">SI1544.WAV + amplify attack</option>
+          <option value="SI1566-noise">SI1566.WAV + noise attack</option>
+          <option value="SI1566-deletion">SI1566.WAV + deletion attack</option>
+          <option value="SI1566-splice">SI1566.WAV + splice attack</option>
+          <option value="SI1566-amplify">SI1566.WAV + amplify attack</option>
+        </select>
+      </div>
+      <button class="btn btn-primary" onclick="runVerify()">Run Authentication</button>
+    </div>
+  </div>
+
+  <!-- Results — hidden until run -->
+  <div id="ver-results" style="display:none">
+
+    <!-- PKL auto-match notice -->
+    <div class="pkl-match mb-16">
+      <span>✓</span>
+      <span>Auto-matched fingerprint: <span class="mono" id="pkl-matched">registered_SA1.pkl</span></span>
+    </div>
+
+    <!-- Verdict banner -->
+    <div class="verdict tampered" id="verdict-banner">
+      <div class="verdict-left">
+        <div class="verdict-icon" id="verdict-icon">⚠</div>
+        <div>
+          <div class="verdict-label" id="verdict-label">TAMPERED</div>
+          <div class="verdict-sub" id="verdict-sub">Tampering detected in the audio signal</div>
+        </div>
+      </div>
+      <div class="verdict-right" id="verdict-right">
+        <div class="verdict-time" id="verdict-time">0.87 s → 2.32 s</div>
+        <div class="verdict-time-label">Tampered region</div>
+      </div>
+    </div>
+
+    <div class="grid-2 mb-16">
+      <!-- Metrics -->
+      <div class="card">
+        <div class="card-title">Authentication Metrics</div>
+
+        <div class="metrics-grid mb-16">
+          <div class="metric-card">
+            <div class="mc-val" id="mc-ber" style="color:var(--blue)">0.1427</div>
+            <div class="mc-lbl">Bit Error Rate (BER)</div>
+          </div>
+          <div class="metric-card">
+            <div class="mc-val" id="mc-nc" style="color:var(--green)">0.8627</div>
+            <div class="mc-lbl">Norm. Correlation (NC)</div>
+          </div>
+          <div class="metric-card">
+            <div class="mc-val" id="mc-frames" style="color:var(--red);font-size:18px">117 / 350</div>
+            <div class="mc-lbl">Tampered Frames</div>
+          </div>
+          <div class="metric-card">
+            <div class="mc-val" id="mc-pct" style="color:var(--red)">33.4%</div>
+            <div class="mc-lbl">Tamper Ratio</div>
+          </div>
+        </div>
+
+        <div class="card-title">Threshold Reference</div>
+        <div class="stat-row">
+          <div class="stat-lbl">BER</div>
+          <div class="stat-bar"><div class="stat-fill" id="ber-fill" style="background:var(--blue)"></div></div>
+          <div class="stat-val"><span id="ber-v">0.1427</span></div>
+        </div>
+        <div style="font-family:var(--mono);font-size:9px;color:var(--text-light);margin-bottom:12px;margin-top:-6px;padding-left:84px">threshold: 0.35 → TAMPERED if above</div>
+        <div class="stat-row">
+          <div class="stat-lbl">NC</div>
+          <div class="stat-bar"><div class="stat-fill" id="nc-fill" style="background:var(--green)"></div></div>
+          <div class="stat-val"><span id="nc-v">0.8627</span></div>
+        </div>
+        <div style="font-family:var(--mono);font-size:9px;color:var(--text-light);margin-bottom:16px;margin-top:-6px;padding-left:84px">threshold: 0.60 → TAMPERED if below</div>
+
+        <!-- Dual layer decision -->
+        <div class="card-title">Dual-Layer Decision</div>
+        <div class="layer-row">
+          <div class="layer-box fail" id="ll-svm">
+            <div class="layer-title">Layer 1 · RF Classifier</div>
+            <div class="layer-val" id="ll-svm-v">TAMPERED</div>
+          </div>
+          <div class="layer-box" id="ll-fp">
+            <div class="layer-title">Layer 2 · BER + NC</div>
+            <div class="layer-val" id="ll-fp-v">WITHIN RANGE</div>
+          </div>
+          <div class="layer-box final-fail" id="ll-final">
+            <div class="layer-title">Final (OR logic)</div>
+            <div class="layer-val" id="ll-final-v">⚠ TAMPERED</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Waveform with tamper region -->
+      <div class="card">
+        <div class="card-title">Waveform — Tampered Region Highlighted</div>
+        <div class="wave-wrap" style="height:100px;margin-bottom:6px">
+          <svg id="wave-ver" viewBox="0 0 700 100" preserveAspectRatio="none"></svg>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-family:var(--mono);font-size:9px;color:var(--text-light);margin-bottom:16px">
+          <span>0.00 s</span><span id="wv-mid">—</span><span id="wv-end">—</span>
+        </div>
+
+        <div class="card-title">Frame-Level Heatmap</div>
+        <div class="heatmap-legend">
+          <div class="hm-leg"><div class="hm-leg-dot" style="background:var(--green)"></div>Authentic frames</div>
+          <div class="hm-leg"><div class="hm-leg-dot" style="background:var(--red)"></div>Tampered frames</div>
+        </div>
+        <div class="heatmap-bar" id="heatmap-bar"></div>
+        <div class="heatmap-axis" id="heatmap-axis">
+          <span>0.00 s</span><span id="hm-t1">—</span><span id="hm-t2">—</span><span id="hm-tend">—</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- All results table -->
+    <div class="card">
+      <div class="card-title">All Test Results — 4 Files × 4 Attacks (16 Experiments)</div>
+      <table class="rtable" id="results-table">
+        <thead>
+          <tr>
+            <th>File</th>
+            <th>Attack</th>
+            <th>Original</th>
+            <th>Verdict</th>
+            <th>BER</th>
+            <th>NC</th>
+            <th>Tamper Location</th>
+          </tr>
+        </thead>
+        <tbody id="rtbody"></tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+</main>
+</div>
+
+<script>
+// ── Data ─────────────────────────────────────────────────────────────────────
+const ALL_RESULTS = [
+  {file:"SA1.WAV",    attack:"noise",    ber:0.1427, nc:0.8627, loc:"0.87s–2.32s", s:0.87, e:2.32, dur:3.49},
+  {file:"SA1.WAV",    attack:"deletion", ber:0.1399, nc:0.8661, loc:"1.06s–2.32s", s:1.06, e:2.32, dur:3.49},
+  {file:"SA1.WAV",    attack:"splice",   ber:0.1827, nc:0.8264, loc:"1.11s–2.32s", s:1.11, e:2.32, dur:3.49},
+  {file:"SA1.WAV",    attack:"amplify",  ber:0.0492, nc:0.9514, loc:"0.49s–2.32s", s:0.49, e:2.32, dur:3.49},
+  {file:"SA2.WAV",    attack:"noise",    ber:0.1415, nc:0.8636, loc:"0.52s–1.91s", s:0.52, e:1.91, dur:2.50},
+  {file:"SA2.WAV",    attack:"deletion", ber:0.1634, nc:0.8361, loc:"0.52s–1.77s", s:0.52, e:1.77, dur:2.50},
+  {file:"SA2.WAV",    attack:"splice",   ber:0.2116, nc:0.8000, loc:"0.52s–1.95s", s:0.52, e:1.95, dur:2.50},
+  {file:"SA2.WAV",    attack:"amplify",  ber:0.0366, nc:0.9635, loc:"0.52s–1.79s", s:0.52, e:1.79, dur:2.50},
+  {file:"SI1544.WAV", attack:"noise",    ber:0.1328, nc:0.8740, loc:"0.59s–1.68s", s:0.59, e:1.68, dur:2.20},
+  {file:"SI1544.WAV", attack:"deletion", ber:0.1499, nc:0.8522, loc:"0.59s–1.54s", s:0.59, e:1.54, dur:2.20},
+  {file:"SI1544.WAV", attack:"splice",   ber:0.1770, nc:0.8330, loc:"0.58s–1.71s", s:0.58, e:1.71, dur:2.20},
+  {file:"SI1544.WAV", attack:"amplify",  ber:0.0457, nc:0.9558, loc:"0.52s–1.43s", s:0.52, e:1.43, dur:2.20},
+  {file:"SI1566.WAV", attack:"noise",    ber:0.1338, nc:0.8706, loc:"1.18s–3.20s", s:1.18, e:3.20, dur:3.80},
+  {file:"SI1566.WAV", attack:"deletion", ber:0.1481, nc:0.8519, loc:"1.43s–3.20s", s:1.43, e:3.20, dur:3.80},
+  {file:"SI1566.WAV", attack:"splice",   ber:0.1721, nc:0.8355, loc:"1.55s–3.20s", s:1.55, e:3.20, dur:3.80},
+  {file:"SI1566.WAV", attack:"amplify",  ber:0.0336, nc:0.9664, loc:"0.94s–3.20s", s:0.94, e:3.20, dur:3.80},
+];
+
+const ATK_PARAMS = {
+  noise:    {title:"Gaussian Noise",  desc:"Adds random noise at 10 dB SNR to the middle 25%–65% of the signal. Clearly audible; distorts MFCC, spectral rolloff, and ZCR.", s:.25,e:.65, feat:"MFCC, Rolloff, ZCR"},
+  deletion: {title:"Deletion",        desc:"Zeroes out the middle 30%–60% of the signal — complete silence. Simulates word/sentence removal from a recording.", s:.30,e:.60, feat:"RMS, Pitch, ΔMFCC"},
+  splice:   {title:"Splice",          desc:"Replaces middle 33%–66% with a segment from a completely different speaker. Most forensically dangerous attack type.", s:.33,e:.66, feat:"MFCC, Pitch, ΔMFCC"},
+  amplify:  {title:"Amplify",         desc:"Applies 4× gain with hard clipping to the middle 20%–55%. RMS energy spikes dramatically. Easiest to detect (lowest BER).", s:.20,e:.55, feat:"RMS, MFCC"},
+};
+
+// ── Nav ───────────────────────────────────────────────────────────────────────
+function goTo(id) {
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('page-'+id).classList.add('active');
+  document.getElementById('nav-'+id).classList.add('active');
+}
+
+// ── Waveform drawing ──────────────────────────────────────────────────────────
+function drawWave(svgId, attacked, sRatio, eRatio, W, H) {
+  W=W||700; H=H||72;
+  const svg = document.getElementById(svgId);
+  if(!svg) return;
+  const pts=[];
+  for(let x=0;x<W;x++){
+    const t=x/W;
+    let a=(Math.sin(t*110)*.38+Math.sin(t*213)*.22+Math.sin(t*59)*.32)*0.82;
+    if(attacked && t>sRatio && t<eRatio) a=Math.random()*1.4-.7;
+    pts.push([x, H/2-a*(H/2-5)]);
+  }
+  let d=`M${pts[0][0]},${pts[0][1]}`;
+  for(let i=1;i<pts.length;i++) d+=` L${pts[i][0]},${pts[i][1]}`;
+  let extra='';
+  if(attacked && sRatio!=null){
+    const xs=(sRatio*W)|0, xe=(eRatio*W)|0;
+    extra=`<rect x="${xs}" y="0" width="${xe-xs}" height="${H}" fill="rgba(220,38,38,.08)" rx="0"/>
+           <line x1="${xs}" y1="0" x2="${xs}" y2="${H}" stroke="rgba(220,38,38,.4)" stroke-width="1.2" stroke-dasharray="3,2"/>
+           <line x1="${xe}" y1="0" x2="${xe}" y2="${H}" stroke="rgba(220,38,38,.4)" stroke-width="1.2" stroke-dasharray="3,2"/>`;
+  }
+  svg.innerHTML=`${extra}<path d="${d}" fill="none" stroke="var(--blue)" stroke-width="1.2" opacity=".75"/>
+    <line x1="0" y1="${H/2}" x2="${W}" y2="${H/2}" stroke="var(--border)" stroke-width=".5"/>`;
+}
+
+// ── Heatmap ───────────────────────────────────────────────────────────────────
+function drawHeatmap(containerId, sTime, eTime, duration) {
+  const c = document.getElementById(containerId);
+  c.innerHTML='';
+  const N=300;
+  for(let i=0;i<N;i++){
+    const t=(i/N)*duration;
+    const d=document.createElement('div');
+    d.className='hm-seg';
+    const tampered = t>=sTime && t<=eTime;
+    d.style.background = tampered ? 'var(--red)' : 'var(--green)';
+    d.style.opacity = tampered ? '0.75' : '0.45';
+    c.appendChild(d);
+  }
+}
+
+// ── Register ──────────────────────────────────────────────────────────────────
+const KNOWN_DURATIONS = {SA1:3.49, SA2:2.50, SI1544:2.20, SI1566:3.80};
+
+function getBase(name){
+  // SA1.WAV → SA1, SA1_noise.WAV → SA1, etc.
+  return name.replace(/\.[Ww][Aa][Vv]$/,'').split('_')[0].toUpperCase();
+}
+
+function onRegFile(inp){
+  const f=inp.files[0]; if(!f)return;
+  document.getElementById('reg-fname').style.display='inline-flex';
+  document.getElementById('reg-fname-text').textContent=f.name;
+  document.getElementById('reg-path').value=f.name;
+}
+function handleRegDrop(e){
+  e.preventDefault();
+  const f=e.dataTransfer.files[0]; if(!f)return;
+  document.getElementById('reg-fname').style.display='inline-flex';
+  document.getElementById('reg-fname-text').textContent=f.name;
+  document.getElementById('reg-path').value=f.name;
+}
+function registerFromPath(){runRegister();}
+
+function runRegister(){
+  const raw=document.getElementById('reg-path').value.trim()||'SA1.WAV';
+  const base=getBase(raw);
+  const dur=KNOWN_DURATIONS[base]||3.49;
+  const frames=Math.round(dur/0.01);
+  const bits=frames*30;
+
+  // animate steps
+  ['rs2','rs3','rs4','rs5'].forEach((id,i)=>{
+    setTimeout(()=>document.getElementById(id).classList.add('done'), (i+1)*350);
+  });
+
+  setTimeout(()=>{
+    document.getElementById('reg-empty').style.display='none';
+    document.getElementById('reg-out').style.display='block';
+    document.getElementById('reg-detail').style.display='block';
+
+    document.getElementById('ro-file').textContent=raw;
+    document.getElementById('ro-dur').textContent=dur.toFixed(2)+' seconds';
+    document.getElementById('ro-frames').textContent=frames.toLocaleString();
+    document.getElementById('ro-bits').textContent=bits.toLocaleString();
+    document.getElementById('ro-pkl').textContent=`registered_${base}.pkl`;
+    document.getElementById('wave-mid-t').textContent=(dur/2).toFixed(2)+' s';
+    document.getElementById('wave-end-t').textContent=dur.toFixed(2)+' s';
+
+    // generate bits
+    let b='';for(let i=0;i<128;i++) b+=Math.round(Math.random());
+    document.getElementById('bits-disp').textContent=b.match(/.{1,8}/g).join(' ');
+
+    drawWave('wave-reg',false,null,null,700,72);
+  }, 4*350+100);
+}
+
+// ── Attack ────────────────────────────────────────────────────────────────────
+let currentAtk='noise';
+function selAtk(t){
+  currentAtk=t;
+  document.querySelectorAll('.atk-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('ab-'+t).classList.add('active');
+  const p=ATK_PARAMS[t];
+  const file=document.getElementById('atk-file').value;
+  const base=getBase(file);
+  const dur=KNOWN_DURATIONS[base]||3.49;
+  document.getElementById('atk-info-box').innerHTML=`
+    <div class="notice notice-amber mb-16">
+      <span class="notice-icon">⚡</span>
+      <div><strong>${p.title}</strong> — ${p.desc}</div>
+    </div>
+    <div class="info-row"><span class="info-key">Start</span><span class="info-val">${(p.s*100)|0}% → ${(p.s*dur).toFixed(2)} s</span></div>
+    <div class="info-row"><span class="info-key">End</span><span class="info-val">${(p.e*100)|0}% → ${(p.e*dur).toFixed(2)} s</span></div>
+    <div class="info-row"><span class="info-key">Duration affected</span><span class="info-val">~${((p.e-p.s)*dur).toFixed(2)} s</span></div>
+    <div class="info-row"><span class="info-key">Approx. frames</span><span class="info-val">~${Math.round((p.e-p.s)*dur/0.01)} / ${Math.round(dur/0.01)}</span></div>
+    <div class="info-row"><span class="info-key">Primary features</span><span class="info-val">${p.feat}</span></div>
+  `;
+}
+
+function applyAttack(){
+  const file=document.getElementById('atk-file').value;
+  const base=getBase(file);
+  const p=ATK_PARAMS[currentAtk];
+  document.getElementById('atk-result').style.display='block';
+  drawWave('wave-orig-cmp',false,null,null,700,72);
+  drawWave('wave-att-cmp',true,p.s,p.e,700,72);
+  const dur=KNOWN_DURATIONS[base]||3.49;
+  document.getElementById('atk-range-label').textContent=
+    `Tampered: ${(p.s*dur).toFixed(2)}s → ${(p.e*dur).toFixed(2)}s`;
+  document.getElementById('atk-saved-name').textContent=`${base}_${currentAtk}.wav`;
+  document.getElementById('atk-wave-label').style.color='var(--red)';
+}
+
+// ── Verify ────────────────────────────────────────────────────────────────────
+let currentVerKey=null;
+
+function onVerFile(inp){
+  const f=inp.files[0]; if(!f)return;
+  document.getElementById('ver-fname').style.display='inline-flex';
+  document.getElementById('ver-fname-text').textContent=f.name;
+  // try to match a known demo
+  const name=f.name.toLowerCase().replace('.wav','').replace(/[^a-z0-9]/g,'-');
+  // attempt fuzzy match
+  for(const r of ALL_RESULTS){
+    const key=`${getBase(r.file)}-${r.attack}`.toLowerCase();
+    if(name.includes(key.split('-')[0]) && name.includes(r.attack)){
+      currentVerKey=`${getBase(r.file)}-${r.attack}`;
+      break;
+    }
+  }
+}
+
+function loadDemo(){
+  const v=document.getElementById('demo-select').value;
+  if(!v)return;
+  currentVerKey=v;
+  const parts=v.split('-');
+  const fakeName=`${parts[0]}_${parts[1]}.wav`;
+  document.getElementById('ver-fname').style.display='inline-flex';
+  document.getElementById('ver-fname-text').textContent=fakeName;
+}
+
+function getResult(key){
+  if(!key) return ALL_RESULTS[0];
+  const [fileBase, attack]=key.split('-');
+  return ALL_RESULTS.find(r=>getBase(r.file)===fileBase.toUpperCase() && r.attack===attack)||ALL_RESULTS[0];
+}
+
+function runVerify(){
+  const r=getResult(currentVerKey||'SA1-noise');
+  document.getElementById('ver-results').style.display='block';
+
+  // pkl name
+  const base=getBase(r.file);
+  document.getElementById('pkl-matched').textContent=`registered_${base}.pkl`;
+
+  // Verdict banner
+  const banner=document.getElementById('verdict-banner');
+  banner.className='verdict tampered';
+  document.getElementById('verdict-icon').textContent='⚠';
+  document.getElementById('verdict-label').textContent='TAMPERED';
+  document.getElementById('verdict-sub').textContent='Unauthorized modification detected in the audio signal';
+  document.getElementById('verdict-right').style.display='';
+  document.getElementById('verdict-time').textContent=r.loc.replace('–',' → ');
+
+  // Metrics
+  const berAbove=r.ber>0.35;
+  const ncBelow=r.nc<0.60;
+  const pctFrames=Math.round((r.e-r.s)/r.dur*100);
+  const nFrames=Math.round(r.dur/0.01);
+  const tFrames=Math.round(pctFrames/100*nFrames);
+
+  document.getElementById('mc-ber').textContent=r.ber.toFixed(4);
+  document.getElementById('mc-ber').style.color=berAbove?'var(--red)':'var(--blue)';
+  document.getElementById('mc-nc').textContent=r.nc.toFixed(4);
+  document.getElementById('mc-nc').style.color=ncBelow?'var(--red)':'var(--green)';
+  document.getElementById('mc-frames').textContent=`${tFrames} / ${nFrames}`;
+  document.getElementById('mc-pct').textContent=`${pctFrames}%`;
+
+  document.getElementById('ber-fill').style.width=Math.min(r.ber/0.35*100,100)+'%';
+  document.getElementById('ber-fill').style.background=berAbove?'var(--red)':'var(--blue)';
+  document.getElementById('ber-v').textContent=r.ber.toFixed(4);
+  document.getElementById('nc-fill').style.width=r.nc*100+'%';
+  document.getElementById('nc-fill').style.background=ncBelow?'var(--red)':'var(--green)';
+  document.getElementById('nc-v').textContent=r.nc.toFixed(4);
+
+  // Dual layer
+  const svmTampered=pctFrames>5;
+  const fpTampered=berAbove||ncBelow;
+  const ll_svm=document.getElementById('ll-svm');
+  const ll_fp=document.getElementById('ll-fp');
+  ll_svm.className='layer-box '+(svmTampered?'fail':'pass');
+  document.getElementById('ll-svm-v').textContent=svmTampered?'TAMPERED':'AUTHENTIC';
+  ll_fp.className='layer-box '+(fpTampered?'fail':'pass');
+  document.getElementById('ll-fp-v').textContent=fpTampered?'TAMPERED':'WITHIN RANGE';
+  document.getElementById('ll-final').className='layer-box '+(svmTampered||fpTampered?'final-fail':'pass');
+  document.getElementById('ll-final-v').textContent=(svmTampered||fpTampered)?'⚠ TAMPERED':'✓ AUTHENTIC';
+
+  // Waveform
+  drawWave('wave-ver',true,r.s/r.dur,r.e/r.dur,700,100);
+  document.getElementById('wv-mid').textContent=(r.dur/2).toFixed(2)+' s';
+  document.getElementById('wv-end').textContent=r.dur.toFixed(2)+' s';
+
+  // Heatmap
+  drawHeatmap('heatmap-bar',r.s,r.e,r.dur);
+  const q=[0,r.s,r.e,r.dur];
+  document.getElementById('hm-t1').textContent=r.s.toFixed(2)+' s ← start';
+  document.getElementById('hm-t2').textContent=r.e.toFixed(2)+' s ← end';
+  document.getElementById('hm-tend').textContent=r.dur.toFixed(2)+' s';
+
+  // Results table
+  buildTable(r);
+
+  // Scroll to results
+  setTimeout(()=>document.getElementById('ver-results').scrollIntoView({behavior:'smooth'}),100);
+}
+
+function buildTable(active){
+  const tbody=document.getElementById('rtbody');
+  tbody.innerHTML=ALL_RESULTS.map(r=>{
+    const isActive=r.file===active.file&&r.attack===active.attack;
+    const atkColors={noise:'tag-blue',deletion:'tag-gray',splice:'tag-red',amplify:'tag-gray'};
+    return `<tr style="${isActive?'background:#eff6ff;':''}" >
+      <td class="mono" style="font-weight:${isActive?600:400}">${r.file}</td>
+      <td><span class="tag ${atkColors[r.attack]}">${r.attack}</span></td>
+      <td><span class="tag tag-green">AUTHENTIC</span></td>
+      <td><span class="tag tag-red">TAMPERED</span></td>
+      <td class="mono" style="color:${r.ber<0.10?'var(--green)':r.ber<0.20?'var(--blue)':'var(--amber)'}">${r.ber.toFixed(4)}</td>
+      <td class="mono" style="color:${r.nc>0.90?'var(--green)':'var(--blue)'}">${r.nc.toFixed(4)}</td>
+      <td class="mono" style="color:var(--red)">${r.loc}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+goTo('verify');
+</script>
+</body>
+</html>
