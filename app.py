@@ -150,9 +150,31 @@ def do_verify(audio_path, pkl_path):
     # rf_tampered  = tamper_ratio > 0.05
     rf_tampered  = tamper_ratio > 0.10
 
+    # tampered_idx = np.where(frame_preds == 0)[0]
+    # s_time = float(tampered_idx[0]  * HOP_LEN / SR) if len(tampered_idx) > 0 else 0.0
+    # e_time = float(tampered_idx[-1] * HOP_LEN / SR) if len(tampered_idx) > 0 else 0.0
+    # ── Find largest continuous tampered segment ──────────────────────────
     tampered_idx = np.where(frame_preds == 0)[0]
-    s_time = float(tampered_idx[0]  * HOP_LEN / SR) if len(tampered_idx) > 0 else 0.0
-    e_time = float(tampered_idx[-1] * HOP_LEN / SR) if len(tampered_idx) > 0 else 0.0
+
+    s_time, e_time = 0.0, 0.0
+    if len(tampered_idx) > 0:
+        # group consecutive tampered frames into segments
+        segments = []
+        seg_start = tampered_idx[0]
+        seg_prev  = tampered_idx[0]
+        for idx in tampered_idx[1:]:
+            if idx - seg_prev <= 3:   # allow gap of 3 frames (~30ms)
+                seg_prev = idx
+            else:
+                segments.append((seg_start, seg_prev))
+                seg_start = idx
+                seg_prev  = idx
+        segments.append((seg_start, seg_prev))
+
+        # pick the longest segment
+        longest = max(segments, key=lambda s: s[1] - s[0])
+        s_time  = float(longest[0] * HOP_LEN / SR)
+        e_time  = float(longest[1] * HOP_LEN / SR)
 
     # ── Layer 2: BER + NC — global AUTHENTICATION ─────────────────────
     binary_q    = (feats >= reg["thresholds"]).astype(np.uint8).flatten()
