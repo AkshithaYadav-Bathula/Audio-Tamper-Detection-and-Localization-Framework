@@ -33,7 +33,7 @@
 <div class="page">
   <div class="page-header">
     <div class="page-title">Verify audio file</div>
-    <div class="page-sub">Upload a WAV file. The system automatically finds the matching fingerprint and verifies it.</div>
+    <div class="page-sub">Upload a WAV file.</div>
   </div>
 
   <div class="left-right">
@@ -50,11 +50,11 @@
           <line x1="12" y1="3" x2="12" y2="15"/>
         </svg>
         <p><span>Choose a WAV file</span> or drag and drop</p>
-        <p class="hint">System auto-detects matching fingerprint</p>
+        <!-- <p class="hint">System auto-detects matching fingerprint</p> -->
       </label>
       <div class="file-selected" id="verFileName"></div>
 
-      <div class="match-info" id="matchInfo">Fingerprint found — ready to verify</div>
+      <!-- <div class="match-info" id="matchInfo"> found — ready to verify</div> -->
       <div class="match-err"  id="matchErr"></div>
 
       <button class="btn-p" id="verifyBtn" onclick="doVerify()" style="display:none">Verify now</button>
