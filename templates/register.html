@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Register — AudioAuth</title>
+<title>Generate Watermark — AudioAuth</title>
 <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
@@ -14,6 +14,7 @@
     <a class="nl active" href="/register">Register</a>
     <a class="nl" href="/verify">Verify</a>
     <a class="nl" href="/attacks">Attacks</a>
+    <a class="nl" href="/features">Features</a>
     <a class="nl" href="/history">History</a>
   </div>
 </nav>
@@ -21,14 +22,14 @@
 <div class="page">
   <div class="page-header">
     <div class="page-title">Generate Watermark</div>
-    <div class="page-sub">Upload an original WAV file to generate and store its encrypted watermark. The original file is never modified.</div>
+    <div class="page-sub">Upload an original WAV file to extract its acoustic features and generate an encrypted zero-watermark. The original audio file is never modified.</div>
   </div>
 
   <div class="two-col">
     <!-- LEFT: upload form -->
     <div class="card">
       <div class="card-title">Upload original audio</div>
-      <div class="card-sub">Supports .wav files, 16kHz mono recommended</div>
+      <div class="card-sub">Supports .wav files · 16 kHz mono recommended</div>
 
       <label class="upload-box" id="uploadLabel">
         <input type="file" id="regFile" accept=".wav">
@@ -38,7 +39,7 @@
           <line x1="12" y1="3" x2="12" y2="15"/>
         </svg>
         <p><span>Choose a WAV file</span> or drag and drop</p>
-        <p class="hint">Supports .wav · 16kHz mono</p>
+        <p class="hint">Supports .wav · 16 kHz mono</p>
       </label>
       <div class="file-selected" id="regFileName"></div>
 
@@ -49,8 +50,8 @@
 
     <!-- RIGHT: result -->
     <div class="card" id="regResult" style="display:none">
-      <div class="card-title">Registration details</div>
-      <div class="card-sub">Fingerprint and encryption details</div>
+      <div class="card-title">Watermark details</div>
+      <div class="card-sub">Acoustic features and encryption summary</div>
 
       <div style="margin-bottom:14px">
         <span class="badge badge-success" id="regBadge"></span>
@@ -60,14 +61,14 @@
       <div class="info-row"><span class="lbl">Duration</span><span class="val" id="r-dur"></span></div>
       <div class="info-row"><span class="lbl">Total frames</span><span class="val" id="r-frames"></span></div>
       <div class="info-row"><span class="lbl">Features per frame</span><span class="val" id="r-feats"></span></div>
-      <div class="info-row" style="margin-bottom:16px"><span class="lbl">Total bits</span><span class="val" id="r-bits"></span></div>
+      <div class="info-row" style="margin-bottom:16px"><span class="lbl">Total watermark bits</span><span class="val" id="r-bits"></span></div>
 
       <div class="key-block">
-        <div class="key-label">Henon map parameters</div>
+        <div class="key-label">Henon map parameters (chaotic key generator)</div>
         <div class="key-bits" id="r-henon"></div>
       </div>
       <div class="key-block">
-        <div class="key-label">Raw fingerprint — first 20 bits</div>
+        <div class="key-label">Raw watermark bits — first 20</div>
         <div class="key-bits" id="r-raw"></div>
       </div>
       <div class="key-block">
@@ -75,13 +76,15 @@
         <div class="key-bits" id="r-key"></div>
       </div>
       <div class="key-block">
-        <div class="key-label">XOR encrypted fingerprint — first 20 bits</div>
+        <div class="key-label">XOR encrypted watermark — first 20 bits</div>
         <div class="key-bits" id="r-enc"></div>
       </div>
 
       <div style="margin-top:14px;font-size:12px;color:#999" id="r-pkl"></div>
 
-      <a class="btn-o" href="/verify" style="margin-top:16px;display:block;text-align:center">Go to Verify →</a>
+      <a class="btn-o" href="/verify" style="margin-top:16px;display:block;text-align:center">
+        Go to Verify →
+      </a>
     </div>
   </div>
 </div>
@@ -91,7 +94,7 @@ const regFile = document.getElementById('regFile')
 regFile.addEventListener('change', () => {
   const name = regFile.files[0]?.name || ''
   const el   = document.getElementById('regFileName')
-  el.textContent = name
+  el.textContent   = name
   el.style.display = name ? 'block' : 'none'
 })
 
@@ -108,22 +111,22 @@ async function doRegister() {
     const data = await res.json()
     document.getElementById('regSpinner').style.display = 'none'
     if (data.error) {
-      document.getElementById('regError').textContent    = data.error
-      document.getElementById('regError').style.display  = 'block'
+      document.getElementById('regError').textContent   = data.error
+      document.getElementById('regError').style.display = 'block'
       return
     }
-    document.getElementById('regBadge').textContent      = `✓ ${data.fname} registered successfully`
-    document.getElementById('r-fname').textContent       = data.fname
-    document.getElementById('r-dur').textContent         = `${data.duration} seconds`
-    document.getElementById('r-frames').textContent      = data.n_frames
-    document.getElementById('r-feats').textContent       = data.n_features
-    document.getElementById('r-bits').textContent        = data.n_bits.toLocaleString()
-    document.getElementById('r-henon').textContent       = data.henon_params
-    document.getElementById('r-raw').textContent         = data.raw_preview.join('  ') + '  ...'
-    document.getElementById('r-key').textContent         = data.key_preview.join('  ') + '  ...'
-    document.getElementById('r-enc').textContent         = data.enc_preview.join('  ') + '  ...'
-    document.getElementById('r-pkl').textContent         = `Saved → ${data.pkl_name}   |   Total bits: ${data.n_bits.toLocaleString()}`
-    document.getElementById('regResult').style.display   = 'grid'
+    document.getElementById('regBadge').textContent = `✓ Watermark generated for ${data.fname}`
+    document.getElementById('r-fname').textContent  = data.fname
+    document.getElementById('r-dur').textContent    = `${data.duration} seconds`
+    document.getElementById('r-frames').textContent = data.n_frames
+    document.getElementById('r-feats').textContent  = data.n_features
+    document.getElementById('r-bits').textContent   = data.n_bits.toLocaleString()
+    document.getElementById('r-henon').textContent  = data.henon_params
+    document.getElementById('r-raw').textContent    = data.raw_preview.join('  ') + '  ...'
+    document.getElementById('r-key').textContent    = data.key_preview.join('  ') + '  ...'
+    document.getElementById('r-enc').textContent    = data.enc_preview.join('  ') + '  ...'
+    document.getElementById('r-pkl').textContent    = `Saved → ${data.pkl_name}   |   Total bits: ${data.n_bits.toLocaleString()}`
+    document.getElementById('regResult').style.display = 'grid'
   } catch(e) {
     document.getElementById('regSpinner').style.display = 'none'
     document.getElementById('regError').textContent     = 'Server error: ' + e.message

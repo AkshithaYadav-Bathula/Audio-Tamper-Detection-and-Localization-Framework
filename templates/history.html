@@ -7,9 +7,9 @@
 <link rel="stylesheet" href="/static/style.css">
 <style>
   .metric-value { font-family: 'DM Mono', monospace; }
-  .metric-good { color: #27500A; }
-  .metric-bad { color: #A32D2D; }
-  .loc-muted { color: #888; }
+  .metric-good  { color: #27500A; }
+  .metric-bad   { color: #A32D2D; }
+  .loc-muted    { color: #888; }
 </style>
 </head>
 <body>
@@ -20,6 +20,7 @@
     <a class="nl" href="/register">Register</a>
     <a class="nl" href="/verify">Verify</a>
     <a class="nl" href="/attacks">Attacks</a>
+    <a class="nl" href="/features">Features</a>
     <a class="nl active" href="/history">History</a>
   </div>
 </nav>
@@ -27,7 +28,7 @@
 <div class="page">
   <div class="page-header">
     <div class="page-title">Verification history</div>
-    <div class="page-sub">All verification results from this session. Most recent first.</div>
+    <div class="page-sub">All verification results from this session. Most recent first. BER threshold: &gt; 0.05 · NC threshold: &lt; 0.97</div>
   </div>
 
   <div class="card" style="padding:0;overflow:hidden">
@@ -54,13 +55,12 @@
               {{ h.result }}
             </span>
           </td>
-          <td class="metric-value {{ 'metric-bad' if h.ber|float > 0.35 else 'metric-good' }}">{{ h.ber }}</td>
-          <td class="metric-value {{ 'metric-bad' if h.nc|float < 0.60 else 'metric-good' }}">{{ h.nc }}</td>
+          <td class="metric-value {{ 'metric-bad' if h.ber|float > 0.05 else 'metric-good' }}">{{ h.ber }}</td>
+          <td class="metric-value {{ 'metric-bad' if h.nc|float < 0.97 else 'metric-good' }}">{{ h.nc }}</td>
           <td class="{{ 'metric-bad' if h.result == 'TAMPERED' else 'loc-muted' }}">{{ h.location }}</td>
           <td>
-            <a href="/output/{{ h.heatmap }}" target="_blank" style="color:#185FA5;font-size:12px;text-decoration:none">
-              View
-            </a>
+            <a href="/output/{{ h.heatmap }}" target="_blank"
+               style="color:#185FA5;font-size:12px;text-decoration:none">View</a>
           </td>
         </tr>
         {% endfor %}

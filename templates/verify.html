@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Verify — AudioAuth</title>
+<title>Verify Watermark — AudioAuth</title>
 <link rel="stylesheet" href="/static/style.css">
 <style>
 .match-info{display:none;font-size:12px;color:#3B6D11;margin:8px 0 14px;padding:8px 12px;background:#EAF3DE;border-radius:7px;border:0.5px solid #C0DD97}
@@ -16,6 +16,7 @@
 .layer-title{font-size:11px;font-weight:500;color:#888;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px}
 .layer-row{display:flex;justify-content:space-between;align-items:center;font-size:13px;padding:4px 0}
 .layer-lbl{color:#555}
+.thresh-note{font-size:11px;color:#aaa;margin-top:6px}
 </style>
 </head>
 <body>
@@ -26,21 +27,22 @@
     <a class="nl" href="/register">Register</a>
     <a class="nl active" href="/verify">Verify</a>
     <a class="nl" href="/attacks">Attacks</a>
+    <a class="nl" href="/features">Features</a>
     <a class="nl" href="/history">History</a>
   </div>
 </nav>
 
 <div class="page">
   <div class="page-header">
-    <div class="page-title">Verify audio file</div>
-    <div class="page-sub">Upload a WAV file.</div>
+    <div class="page-title">Verify Watermark</div>
+    <div class="page-sub">Upload a WAV file to compare its acoustic watermark against the registered original. The system uses two independent layers: Random Forest per-frame classification and BER + NC watermark comparison.</div>
   </div>
 
   <div class="left-right">
     <!-- LEFT -->
     <div class="card">
       <div class="card-title">Upload audio to verify</div>
-      <div class="card-sub">e.g. SA1.WAV or SA1_noise.wav</div>
+      <div class="card-sub">e.g. SA1.WAV or DR2_FDRD1_SA1_noise.wav</div>
 
       <label class="upload-box">
         <input type="file" id="verFile" accept=".wav">
@@ -50,11 +52,10 @@
           <line x1="12" y1="3" x2="12" y2="15"/>
         </svg>
         <p><span>Choose a WAV file</span> or drag and drop</p>
-        <!-- <p class="hint">System auto-detects matching fingerprint</p> -->
       </label>
       <div class="file-selected" id="verFileName"></div>
 
-      <!-- <div class="match-info" id="matchInfo"> found — ready to verify</div> -->
+      <div class="match-info" id="matchInfo">Watermark found — ready to verify</div>
       <div class="match-err"  id="matchErr"></div>
 
       <button class="btn-p" id="verifyBtn" onclick="doVerify()" style="display:none">Verify now</button>
@@ -92,7 +93,7 @@
       <!-- TAMPER LOCATION -->
       <div id="locationBar" class="location-bar" style="display:none"></div>
 
-      <!-- TWO LAYER DECISIONS -->
+      <!-- LAYER 1 -->
       <div class="layer-card">
         <div class="layer-title">Layer 1 — Random Forest (tamper localization)</div>
         <div class="layer-row">
@@ -103,10 +104,12 @@
           <span class="layer-lbl">Tampered frames detected</span>
           <span id="v-rf-frames" style="font-size:13px;font-weight:500"></span>
         </div>
+        <div class="thresh-note">Tampered if &gt; 10% of frames are classified as tampered</div>
       </div>
 
+      <!-- LAYER 2 -->
       <div class="layer-card">
-        <div class="layer-title">Layer 2 — BER + NC (authentication)</div>
+        <div class="layer-title">Layer 2 — BER + NC watermark comparison</div>
         <div class="layer-row">
           <span class="layer-lbl">Bit Error Rate (BER)</span>
           <span id="v-ber2" style="font-size:13px;font-weight:500;font-family:monospace"></span>
@@ -116,9 +119,10 @@
           <span id="v-nc2" style="font-size:13px;font-weight:500;font-family:monospace"></span>
         </div>
         <div class="layer-row">
-          <span class="layer-lbl">Fingerprint decision</span>
+          <span class="layer-lbl">Watermark decision</span>
           <span id="v-fp" class="badge"></span>
         </div>
+        <div class="thresh-note">Tampered if BER &gt; 0.05 or NC &lt; 0.97</div>
       </div>
 
       <!-- FILE DETAILS -->
@@ -126,7 +130,7 @@
         <div style="font-size:13px;font-weight:500;color:#1a1a1a;margin-bottom:8px">File details</div>
         <div class="dl-item"><span class="dl-lbl">File</span><span class="dl-val" id="v-file"></span></div>
         <div class="dl-item"><span class="dl-lbl">Duration</span><span class="dl-val" id="v-dur"></span></div>
-        <div class="dl-item"><span class="dl-lbl">Total frames (25ms each)</span><span class="dl-val" id="v-total"></span></div>
+        <div class="dl-item"><span class="dl-lbl">Total frames (25 ms each)</span><span class="dl-val" id="v-total"></span></div>
       </div>
 
       <!-- HEATMAP -->
@@ -168,11 +172,11 @@ verFile.addEventListener('change', async function() {
   const data = await res.json()
 
   if (data.found) {
-    document.getElementById('matchInfo').style.display   = 'block'
-    document.getElementById('verifyBtn').style.display   = 'block'
+    document.getElementById('matchInfo').style.display = 'block'
+    document.getElementById('verifyBtn').style.display = 'block'
   } else {
     document.getElementById('matchErr').textContent      =
-      `No fingerprint found for "${data.base_name}". Please register it first.`
+      `No watermark found for "${data.base_name}". Please register it first.`
     document.getElementById('matchErr').style.display    = 'block'
     document.getElementById('registerBtn').style.display = 'block'
   }
@@ -197,14 +201,13 @@ async function doVerify() {
     document.getElementById('verSpinner').style.display = 'none'
 
     if (data.error) {
-      document.getElementById('verError').textContent   = data.error
-      document.getElementById('verError').style.display = 'block'
-      document.getElementById('verifyBtn').style.display= 'block'
+      document.getElementById('verError').textContent    = data.error
+      document.getElementById('verError').style.display  = 'block'
+      document.getElementById('verifyBtn').style.display = 'block'
       return
     }
 
     const tampered = data.tampered
-    const color    = tampered ? 'red' : 'green'
 
     // VERDICT
     const vbox = document.getElementById('verdictBox')
@@ -221,7 +224,7 @@ async function doVerify() {
         <div class="verdict-title">${tampered ? 'Tampered' : 'Authentic'}</div>
         <div class="verdict-sub">${file.name} — ${tampered
           ? 'tampering detected and localized'
-          : 'matches original fingerprint perfectly'}</div>
+          : 'watermark matches original perfectly'}</div>
       </div>`
 
     // METRICS
