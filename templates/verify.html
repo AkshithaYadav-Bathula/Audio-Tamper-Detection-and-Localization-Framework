@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Verify — AudioAuth</title>
+<link rel="stylesheet" href="/static/style.css">
+<style>
+.match-info{display:none;font-size:12px;color:#3B6D11;margin:8px 0 14px;padding:8px 12px;background:#EAF3DE;border-radius:7px;border:0.5px solid #C0DD97}
+.match-err{display:none;font-size:13px;color:#A32D2D;margin:8px 0 14px;padding:10px 12px;background:#FCEBEB;border-radius:7px;border:0.5px solid #F09595}
+.dl-item{display:flex;justify-content:space-between;align-items:center;font-size:13px;padding:9px 0;border-top:0.5px solid #f0ede8}
+.dl-item:first-child{border-top:none}
+.dl-lbl{color:#888}
+.dl-val{font-weight:500;color:#1a1a1a}
+.layer-card{background:#f8f8f6;border:0.5px solid #ece9e3;border-radius:8px;padding:14px 16px;margin-bottom:10px}
+.layer-title{font-size:11px;font-weight:500;color:#888;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px}
+.layer-row{display:flex;justify-content:space-between;align-items:center;font-size:13px;padding:4px 0}
+.layer-lbl{color:#555}
+</style>
+</head>
+<body>
+<nav class="nav">
+  <a class="logo" href="/">Audio<span>Auth</span></a>
+  <div class="nav-links">
+    <a class="nl" href="/">Home</a>
+    <a class="nl" href="/register">Register</a>
+    <a class="nl active" href="/verify">Verify</a>
+    <a class="nl" href="/attacks">Attacks</a>
+    <a class="nl" href="/history">History</a>
+  </div>
+</nav>
+
+<div class="page">
+  <div class="page-header">
+    <div class="page-title">Verify audio file</div>
+    <div class="page-sub">Upload a WAV file. The system automatically finds the matching fingerprint and verifies it.</div>
+  </div>
+
+  <div class="left-right">
+    <!-- LEFT -->
+    <div class="card">
+      <div class="card-title">Upload audio to verify</div>
+      <div class="card-sub">e.g. SA1.WAV or SA1_noise.wav</div>
+
+      <label class="upload-box">
+        <input type="file" id="verFile" accept=".wav">
+        <svg class="upload-icon" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#bbb" stroke-width="1.5">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="17 8 12 3 7 8"/>
+          <line x1="12" y1="3" x2="12" y2="15"/>
+        </svg>
+        <p><span>Choose a WAV file</span> or drag and drop</p>
+        <p class="hint">System auto-detects matching fingerprint</p>
+      </label>
+      <div class="file-selected" id="verFileName"></div>
+
+      <div class="match-info" id="matchInfo">Fingerprint found — ready to verify</div>
+      <div class="match-err"  id="matchErr"></div>
+
+      <button class="btn-p" id="verifyBtn" onclick="doVerify()" style="display:none">Verify now</button>
+      <a class="btn-o" href="/register" id="registerBtn"
+         style="display:none;text-align:center;margin-top:10px;text-decoration:none">
+        Register this file first →
+      </a>
+
+      <div class="spinner" id="verSpinner"></div>
+      <div id="verError" style="color:#A32D2D;font-size:13px;margin-top:10px;display:none"></div>
+    </div>
+
+    <!-- RIGHT -->
+    <div id="verResult" style="display:none">
+
+      <!-- FINAL VERDICT -->
+      <div id="verdictBox" class="verdict" style="margin-bottom:16px"></div>
+
+      <!-- BER NC FRAMES -->
+      <div class="metrics" style="margin-bottom:14px">
+        <div class="metric">
+          <div class="metric-label">BER</div>
+          <div class="metric-val" id="v-ber"></div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">NC</div>
+          <div class="metric-val" id="v-nc"></div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">Tampered frames</div>
+          <div class="metric-val" id="v-frames"></div>
+        </div>
+      </div>
+
+      <!-- TAMPER LOCATION -->
+      <div id="locationBar" class="location-bar" style="display:none"></div>
+
+      <!-- TWO LAYER DECISIONS -->
+      <div class="layer-card">
+        <div class="layer-title">Layer 1 — Random Forest (tamper localization)</div>
+        <div class="layer-row">
+          <span class="layer-lbl">Per-frame classification</span>
+          <span id="v-rf" class="badge"></span>
+        </div>
+        <div class="layer-row">
+          <span class="layer-lbl">Tampered frames detected</span>
+          <span id="v-rf-frames" style="font-size:13px;font-weight:500"></span>
+        </div>
+      </div>
+
+      <div class="layer-card">
+        <div class="layer-title">Layer 2 — BER + NC (authentication)</div>
+        <div class="layer-row">
+          <span class="layer-lbl">Bit Error Rate (BER)</span>
+          <span id="v-ber2" style="font-size:13px;font-weight:500;font-family:monospace"></span>
+        </div>
+        <div class="layer-row">
+          <span class="layer-lbl">Normalized Correlation (NC)</span>
+          <span id="v-nc2" style="font-size:13px;font-weight:500;font-family:monospace"></span>
+        </div>
+        <div class="layer-row">
+          <span class="layer-lbl">Fingerprint decision</span>
+          <span id="v-fp" class="badge"></span>
+        </div>
+      </div>
+
+      <!-- FILE DETAILS -->
+      <div class="card" style="padding:16px;margin-bottom:12px">
+        <div style="font-size:13px;font-weight:500;color:#1a1a1a;margin-bottom:8px">File details</div>
+        <div class="dl-item"><span class="dl-lbl">File</span><span class="dl-val" id="v-file"></span></div>
+        <div class="dl-item"><span class="dl-lbl">Duration</span><span class="dl-val" id="v-dur"></span></div>
+        <div class="dl-item"><span class="dl-lbl">Total frames (25ms each)</span><span class="dl-val" id="v-total"></span></div>
+      </div>
+
+      <!-- HEATMAP -->
+      <div class="card" style="padding:16px">
+        <div style="font-size:13px;font-weight:500;color:#1a1a1a;margin-bottom:12px">Tamper localization heatmap</div>
+        <div class="heatmap-wrap">
+          <img id="heatmapImg" src="" alt="heatmap" style="width:100%;display:block">
+        </div>
+        <a id="heatmapDownload" class="btn-o"
+           style="margin-top:10px;display:block;text-align:center;text-decoration:none" download>
+          Download heatmap
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const verFile = document.getElementById('verFile')
+
+verFile.addEventListener('change', async function() {
+  const file = this.files[0]
+  if (!file) return
+
+  document.getElementById('verFileName').textContent   = file.name
+  document.getElementById('verFileName').style.display = 'block'
+  document.getElementById('verResult').style.display   = 'none'
+  document.getElementById('verifyBtn').style.display   = 'none'
+  document.getElementById('registerBtn').style.display = 'none'
+  document.getElementById('matchInfo').style.display   = 'none'
+  document.getElementById('matchErr').style.display    = 'none'
+  document.getElementById('verError').style.display    = 'none'
+
+  const res  = await fetch('/api/match_pkl', {
+    method : 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body   : JSON.stringify({ filename: file.name })
+  })
+  const data = await res.json()
+
+  if (data.found) {
+    document.getElementById('matchInfo').style.display   = 'block'
+    document.getElementById('verifyBtn').style.display   = 'block'
+  } else {
+    document.getElementById('matchErr').textContent      =
+      `No fingerprint found for "${data.base_name}". Please register it first.`
+    document.getElementById('matchErr').style.display    = 'block'
+    document.getElementById('registerBtn').style.display = 'block'
+  }
+})
+
+async function doVerify() {
+  const file = verFile.files[0]
+  if (!file) return
+
+  document.getElementById('verSpinner').style.display = 'block'
+  document.getElementById('verError').style.display   = 'none'
+  document.getElementById('verResult').style.display  = 'none'
+  document.getElementById('matchInfo').style.display  = 'none'
+  document.getElementById('verifyBtn').style.display  = 'none'
+
+  const fd = new FormData()
+  fd.append('file', file)
+
+  try {
+    const res  = await fetch('/api/verify', { method: 'POST', body: fd })
+    const data = await res.json()
+    document.getElementById('verSpinner').style.display = 'none'
+
+    if (data.error) {
+      document.getElementById('verError').textContent   = data.error
+      document.getElementById('verError').style.display = 'block'
+      document.getElementById('verifyBtn').style.display= 'block'
+      return
+    }
+
+    const tampered = data.tampered
+    const color    = tampered ? 'red' : 'green'
+
+    // VERDICT
+    const vbox = document.getElementById('verdictBox')
+    vbox.className = 'verdict ' + (tampered ? 'tampered' : 'authentic')
+    vbox.innerHTML = `
+      <div class="verdict-icon">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5">
+          ${tampered
+            ? '<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>'
+            : '<polyline points="20 6 9 17 4 12"/>'}
+        </svg>
+      </div>
+      <div>
+        <div class="verdict-title">${tampered ? 'Tampered' : 'Authentic'}</div>
+        <div class="verdict-sub">${file.name} — ${tampered
+          ? 'tampering detected and localized'
+          : 'matches original fingerprint perfectly'}</div>
+      </div>`
+
+    // METRICS
+    const berEl = document.getElementById('v-ber')
+    const ncEl  = document.getElementById('v-nc')
+    const frEl  = document.getElementById('v-frames')
+    berEl.textContent = data.ber
+    ncEl.textContent  = data.nc
+    frEl.textContent  = `${data.n_tampered}/${data.n_frames}`
+    berEl.className = ncEl.className = frEl.className =
+      'metric-val ' + (tampered ? 'red' : 'green')
+
+    // LOCATION
+    const locBar = document.getElementById('locationBar')
+    if (tampered && data.n_tampered > 0) {
+      locBar.textContent   =
+        `Tamper detected at: ${data.s_time}s – ${data.e_time}s   |   Tampered duration: ${(data.e_time - data.s_time).toFixed(2)}s`
+      locBar.style.display = 'block'
+    } else {
+      locBar.style.display = 'none'
+    }
+
+    // LAYER 1
+    const rfEl = document.getElementById('v-rf')
+    rfEl.textContent = data.rf_label
+    rfEl.className   = 'badge ' + (data.rf_tampered ? 'badge-danger' : 'badge-success')
+    document.getElementById('v-rf-frames').textContent = `${data.n_tampered} / ${data.n_frames} frames`
+    document.getElementById('v-rf-frames').style.color = data.rf_tampered ? '#A32D2D' : '#27500A'
+
+    // LAYER 2
+    document.getElementById('v-ber2').textContent = data.ber
+    document.getElementById('v-ber2').style.color = data.fp_tampered ? '#A32D2D' : '#27500A'
+    document.getElementById('v-nc2').textContent  = data.nc
+    document.getElementById('v-nc2').style.color  = data.fp_tampered ? '#A32D2D' : '#27500A'
+    const fpEl = document.getElementById('v-fp')
+    fpEl.textContent = data.fp_label
+    fpEl.className   = 'badge ' + (data.fp_tampered ? 'badge-danger' : 'badge-success')
+
+    // FILE DETAILS
+    document.getElementById('v-file').textContent  = file.name
+    document.getElementById('v-dur').textContent   = `${data.duration} seconds`
+    document.getElementById('v-total').textContent = data.n_frames
+
+    // HEATMAP
+    const heatUrl = `/output/${data.heatmap}`
+    document.getElementById('heatmapImg').src           = heatUrl
+    document.getElementById('heatmapDownload').href     = heatUrl
+    document.getElementById('heatmapDownload').download = data.heatmap
+
+    document.getElementById('verResult').style.display = 'block'
+
+  } catch(e) {
+    document.getElementById('verSpinner').style.display = 'none'
+    document.getElementById('verError').textContent     = 'Server error: ' + e.message
+    document.getElementById('verError').style.display   = 'block'
+    document.getElementById('verifyBtn').style.display  = 'block'
+  }
+}
+</script>
+</body>
+</html>

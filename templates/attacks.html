@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Attacks — AudioAuth</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<nav class="nav">
+  <a class="logo" href="/">Audio<span>Auth</span></a>
+  <div class="nav-links">
+    <a class="nl" href="/">Home</a>
+    <a class="nl" href="/register">Register</a>
+    <a class="nl" href="/verify">Verify</a>
+    <a class="nl active" href="/attacks">Attacks</a>
+    <a class="nl" href="/history">History</a>
+  </div>
+</nav>
+
+<div class="page">
+  <div class="page-header">
+    <div class="page-title">Create tampered audio</div>
+    <div class="page-sub">Upload an original WAV file, choose an attack type, and download the tampered version. You can then verify it to test the system.</div>
+  </div>
+
+  <div class="two-col">
+    <!-- LEFT: upload + attack selection -->
+    <div class="card">
+      <div class="card-title">Step 1 — Upload audio</div>
+      <div class="card-sub">Original WAV file to apply attack on</div>
+
+      <label class="upload-box" id="atkUploadLabel">
+        <input type="file" id="atkFile" accept=".wav">
+        <svg class="upload-icon" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#bbb" stroke-width="1.5">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="17 8 12 3 7 8"/>
+          <line x1="12" y1="3" x2="12" y2="15"/>
+        </svg>
+        <p><span>Choose a WAV file</span> or drag and drop</p>
+        <p class="hint">Supports .wav · 16kHz mono</p>
+      </label>
+      <div class="file-selected" id="atkFileName"></div>
+
+      <div style="margin-top:22px">
+        <div class="card-title">Step 2 — Select attack type</div>
+        <div class="card-sub" style="margin-bottom:14px">Choose how to tamper the audio</div>
+        <div class="attack-grid" id="attackGrid">
+          <div class="attack-opt selected" data-attack="noise" onclick="selectAttack(this)">
+            <h4>Noise addition</h4>
+            <p>Gaussian noise at SNR 10dB injected in middle 40%</p>
+          </div>
+          <div class="attack-opt" data-attack="deletion" onclick="selectAttack(this)">
+            <h4>Content deletion</h4>
+            <p>Silence replaces middle 30% of the audio</p>
+          </div>
+          <div class="attack-opt" data-attack="splice" onclick="selectAttack(this)">
+            <h4>Splicing</h4>
+            <p>Random signal inserted in middle 33%</p>
+          </div>
+          <div class="attack-opt" data-attack="amplify" onclick="selectAttack(this)">
+            <h4>Amplification</h4>
+            <p>4× gain applied to middle 35% of audio</p>
+          </div>
+        </div>
+      </div>
+
+      <button class="btn-p" onclick="doAttack()">Apply attack</button>
+      <div class="spinner" id="atkSpinner"></div>
+      <div id="atkError" style="color:#A32D2D;font-size:13px;margin-top:10px;display:none"></div>
+    </div>
+
+    <!-- RIGHT: result -->
+    <div class="card" id="atkResult" style="display:none">
+      <div class="card-title">Step 3 — Preview and download</div>
+      <div class="card-sub">Tampered file is ready</div>
+
+      <div class="verdict tampered" style="margin-bottom:16px" id="atkBadge"></div>
+
+      <div class="info-row"><span class="lbl">Original file</span><span class="val" id="a-orig"></span></div>
+      <div class="info-row"><span class="lbl">Attack applied</span><span id="a-attack" class="badge badge-danger"></span></div>
+      <div class="info-row"><span class="lbl">Tampered region</span><span class="val" id="a-region" style="color:#A32D2D"></span></div>
+      <div class="info-row" style="margin-bottom:20px"><span class="lbl">Duration</span><span class="val" id="a-dur"></span></div>
+
+      <div style="background:#fff8f0;border:0.5px solid #EF9F27;border-radius:8px;padding:14px 16px;font-size:13px;color:#633806;margin-bottom:20px">
+        This file has been artificially tampered. You can download it and test the verify page to see if the system correctly detects and localizes the tampering.
+      </div>
+
+      <a id="atkDownload" class="btn-p" style="text-align:center;text-decoration:none;display:block" download>
+        Download tampered file
+      </a>
+      <a id="atkVerifyLink" class="btn-o" href="/verify">
+        Verify this file now →
+      </a>
+    </div>
+  </div>
+</div>
+
+<script>
+let selectedAttack = 'noise'
+
+document.getElementById('atkFile').addEventListener('change', function() {
+  const el = document.getElementById('atkFileName')
+  el.textContent = this.files[0]?.name || ''
+  el.style.display = this.files[0] ? 'block' : 'none'
+})
+
+function selectAttack(el) {
+  document.querySelectorAll('.attack-opt').forEach(o => o.classList.remove('selected'))
+  el.classList.add('selected')
+  selectedAttack = el.dataset.attack
+}
+
+const attackLabels = {
+  noise:    'Noise addition',
+  deletion: 'Content deletion',
+  splice:   'Splicing',
+  amplify:  'Amplification',
+}
+
+async function doAttack() {
+  const file = document.getElementById('atkFile').files[0]
+  if (!file) { alert('Please select a WAV file'); return }
+
+  document.getElementById('atkSpinner').style.display = 'block'
+  document.getElementById('atkError').style.display   = 'none'
+  document.getElementById('atkResult').style.display  = 'none'
+
+  const fd = new FormData()
+  fd.append('file', file)
+  fd.append('attack', selectedAttack)
+
+  try {
+    const res  = await fetch('/api/attack', { method: 'POST', body: fd })
+    const data = await res.json()
+    document.getElementById('atkSpinner').style.display = 'none'
+
+    if (data.error) {
+      document.getElementById('atkError').textContent   = data.error
+      document.getElementById('atkError').style.display = 'block'
+      return
+    }
+
+    document.getElementById('atkBadge').innerHTML = `
+      <div class="verdict-icon" style="background:#E24B4A">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </div>
+      <div>
+        <div class="verdict-title">${data.filename} created</div>
+        <div class="verdict-sub">Tampered with ${attackLabels[data.attack]}</div>
+      </div>`
+
+    document.getElementById('a-orig').textContent   = file.name
+    document.getElementById('a-attack').textContent = attackLabels[data.attack]
+    document.getElementById('a-region').textContent = `${data.s_time}s – ${data.e_time}s`
+    document.getElementById('a-dur').textContent    = `${data.duration} seconds`
+
+    const dlUrl = `/output/${data.filename}`
+    document.getElementById('atkDownload').href     = dlUrl
+    document.getElementById('atkDownload').download = data.filename
+    document.getElementById('atkDownload').textContent = `Download ${data.filename}`
+
+    document.getElementById('atkResult').style.display = 'block'
+
+  } catch(e) {
+    document.getElementById('atkSpinner').style.display = 'none'
+    document.getElementById('atkError').textContent     = 'Server error: ' + e.message
+    document.getElementById('atkError').style.display   = 'block'
+  }
+}
+</script>
+</body>
+</html>

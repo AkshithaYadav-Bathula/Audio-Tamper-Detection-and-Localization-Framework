@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AudioAuth — Speech Authentication System</title>
+<link rel="stylesheet" href="/static/style.css">
+<style>
+.hero{max-width:980px;margin:0 auto;padding:52px 40px 64px}
+.tag{display:inline-block;background:#E6F1FB;color:#0C447C;font-size:11px;font-weight:500;padding:4px 12px;border-radius:20px;margin-bottom:18px;letter-spacing:0.3px}
+.hero h1{font-size:32px;font-weight:400;color:#1a1a1a;line-height:1.35;margin-bottom:10px}
+.hero h1 strong{font-weight:500;color:#185FA5}
+.divider{width:40px;height:2px;background:#185FA5;border-radius:2px;margin-bottom:32px}
+.hero-wrap{display:grid;grid-template-columns:1fr 420px;gap:48px;align-items:start}
+.bullets{display:flex;flex-direction:column;gap:12px;margin-bottom:32px}
+.bullet{display:flex;align-items:flex-start;gap:14px;background:#fff;border:0.5px solid #e0deda;border-radius:10px;padding:16px 18px}
+.b-icon{width:34px;height:34px;border-radius:7px;background:#E6F1FB;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.b-text h3{font-size:13px;font-weight:500;color:#1a1a1a;margin-bottom:3px}
+.b-text p{font-size:12px;color:#888;line-height:1.6}
+.cta{display:flex;gap:8px}
+.cta a{padding:10px 20px;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer;text-decoration:none;transition:all .15s}
+.cta-p{background:#185FA5;color:#fff;border:none}
+.cta-p:hover{opacity:.88}
+.cta-o{background:#fff;color:#185FA5;border:0.5px solid #185FA5}
+.cta-o:hover{background:#f0f7ff}
+.flow-card{background:#fff;border:0.5px solid #e0deda;border-radius:12px;padding:22px;position:sticky;top:76px}
+.flow-card h3{font-size:13px;font-weight:500;color:#1a1a1a;margin-bottom:16px}
+.fs{display:flex;align-items:flex-start;gap:12px;padding:12px 0;border-bottom:0.5px solid #f0ede8}
+.fs:last-child{border-bottom:none}
+.fs-num{width:24px;height:24px;border-radius:50%;background:#185FA5;color:#fff;font-size:11px;font-weight:600;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
+.fs-num.done{background:#639922}
+.fs-body h4{font-size:12px;font-weight:500;color:#1a1a1a;margin-bottom:2px}
+.fs-body p{font-size:11px;color:#999;line-height:1.5}
+</style>
+</head>
+<body>
+<nav class="nav">
+  <a class="logo" href="/">Audio<span>Auth</span></a>
+  <div class="nav-links">
+    <a class="nl active" href="/">Home</a>
+    <a class="nl" href="/register">Register</a>
+    <a class="nl" href="/verify">Verify</a>
+    <a class="nl" href="/attacks">Attacks</a>
+    <a class="nl" href="/history">History</a>
+  </div>
+</nav>
+
+<div class="hero">
+  <div class="tag">ML-Assisted Zero-Watermarking · TIMIT Corpus · Random Forest · Henon Map</div>
+  <h1>Speech Audio Authentication<br>with <strong>Frame-Level Tamper Localization</strong></h1>
+  <div class="divider"></div>
+
+  <div class="hero-wrap">
+    <div>
+      <div class="bullets">
+        <div class="bullet">
+          <div class="b-icon">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#185FA5" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          </div>
+          <div class="b-text">
+            <h3>Zero-watermarking — original audio is never modified</h3>
+            <p>A 30-dimensional feature fingerprint (MFCC, ΔMFCC, ZCR, Pitch, Rolloff, RMS) is extracted and encrypted using a Henon map chaotic key. The WAV file stays byte-for-byte identical. BER = 0.0000 on authentic files.</p>
+          </div>
+        </div>
+        <div class="bullet">
+          <div class="b-icon">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#185FA5" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+          </div>
+          <div class="b-text">
+            <h3>Random Forest classifier — per-frame tamper detection</h3>
+            <p>Trained on 182,588 labeled frames across 4 attack types from the TIMIT corpus. Each 25ms frame is independently classified as authentic or tampered. Achieves 86.28% accuracy and 95.07% recall.</p>
+          </div>
+        </div>
+        <div class="bullet">
+          <div class="b-icon">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#185FA5" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+          </div>
+          <div class="b-text">
+            <h3>Frame-level localization — tells you exactly where</h3>
+            <p>Instead of a binary yes/no, the system outputs the exact time segment where tampering occurred, shown as a heatmap with tamper probability timeline, BER, and NC scores.</p>
+          </div>
+        </div>
+      </div>
+      <div class="cta">
+        <a class="cta-p" href="/register">Register audio</a>
+        <a class="cta-o" href="/verify">Verify audio</a>
+        <a class="cta-o" href="/attacks">Create attack</a>
+      </div>
+    </div>
+
+    <div class="flow-card">
+      <h3>How it works</h3>
+      <div class="fs">
+        <div class="fs-num">1</div>
+        <div class="fs-body"><h4>Register original audio</h4><p>Extract 30 features · Henon key encryption · Save PKL fingerprint</p></div>
+      </div>
+      <div class="fs">
+        <div class="fs-num">2</div>
+        <div class="fs-body"><h4>Submit query audio</h4><p>Upload any audio — original or suspected tampered version</p></div>
+      </div>
+      <div class="fs">
+        <div class="fs-num">3</div>
+        <div class="fs-body"><h4>Random Forest — per frame</h4><p>Every 25ms frame classified independently as authentic or tampered</p></div>
+      </div>
+      <div class="fs">
+        <div class="fs-num">4</div>
+        <div class="fs-body"><h4>BER + NC fingerprint check</h4><p>Encrypted fingerprint compared against stored PKL using BER and NC</p></div>
+      </div>
+      <div class="fs">
+        <div class="fs-num done">✓</div>
+        <div class="fs-body"><h4>Output: tamper localization map</h4><p>Exact time segment + heatmap + BER + NC + final decision</p></div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>
